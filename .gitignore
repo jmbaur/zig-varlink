@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2023 Väinö Mäkelä <vaino.makela@iki.fi>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+zig-out/
+zig-cache/
