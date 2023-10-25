@@ -247,7 +247,7 @@ fn tokenizeEnumFields(
             return error.UnclosedEnum;
         }
         switch (current_input[0]) {
-            ',' => current_input = current_input[1..],
+            ',' => current_input = skipAllWhitespace(current_input[1..]),
             ')' => {
                 try tokens.append(.enum_end);
                 return current_input[1..];
