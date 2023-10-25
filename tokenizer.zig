@@ -9,6 +9,9 @@ const testing = std.testing;
 
 const Token = union(enum) {
     name: []const u8,
+    typedef,
+    enum_begin,
+    enum_end,
 };
 
 const Tokens = std.ArrayList(Token);
@@ -226,4 +229,117 @@ test tokenizeInterface {
     );
     try testing.expectEqual(@as(usize, 1), tokens.items.len);
     try testing.expectEqualDeep(expected_token, tokens.items[0]);
+}
+
+fn tokenizeEnumFields(
+    input: []const u8,
+    tokens: *Tokens,
+    error_pos: *?[*]const u8,
+) ![]const u8 {
+    var current_input = input;
+    while (true) {
+        const rest = try tokenizeName(current_input, tokens, error_pos);
+        current_input = skipAllWhitespace(rest);
+        if (current_input.len == 0) {
+            if (rest.len > 0) {
+                error_pos.* = rest.ptr;
+            }
+            return error.UnclosedEnum;
+        }
+        switch (current_input[0]) {
+            ',' => current_input = current_input[1..],
+            ')' => {
+                try tokens.append(.enum_end);
+                return current_input[1..];
+            },
+            else => {
+                error_pos.* = current_input.ptr;
+                return error.ExpectedComma;
+            },
+        }
+    }
+}
+
+fn tokenizeStructlike(
+    input: []const u8,
+    tokens: *Tokens,
+    error_pos: *?[*]const u8,
+) ![]const u8 {
+    const after_opening = try skipWord(input, "(", error_pos);
+    const first_member = skipAllWhitespace(after_opening);
+    const start_marker = try tokens.addOne();
+    const after_name = skipAllWhitespace(
+        try tokenizeName(
+            first_member,
+            tokens,
+            error_pos,
+        ),
+    );
+    if (after_name.len == 0) {
+        error_pos.* = input.ptr;
+        return error.UnclosedStructlike;
+    }
+    switch (after_name[0]) {
+        ')' => {
+            start_marker.* = .enum_begin;
+            return after_name[1..];
+        },
+        ',' => {
+            start_marker.* = .enum_begin;
+            return tokenizeEnumFields(
+                skipAllWhitespace(after_name[1..]),
+                tokens,
+                error_pos,
+            );
+        },
+        ':' => std.debug.panic("TODO: Implement structs", .{}),
+        else => {
+            error_pos.* = after_name.ptr;
+            return error.ExpectedCommaOrColon;
+        },
+    }
+}
+
+fn tokenizeTypedef(
+    input: []const u8,
+    tokens: *Tokens,
+    error_pos: *?[*]const u8,
+) ![]const u8 {
+    const after_type = try skipWord(input, "type", error_pos);
+    const after_space = skipAllWhitespace(after_type);
+    if (after_space.len == 0) {
+        error_pos.* = input.ptr;
+        return error.ExpectedType;
+    }
+    if (after_space.ptr == after_type.ptr) {
+        error_pos.* = after_space.ptr;
+        return error.ExpectedSpace;
+    }
+    try tokens.append(.typedef);
+    const after_name = try tokenizeName(after_space, tokens, error_pos);
+    return tokenizeStructlike(skipAllWhitespace(after_name), tokens, error_pos);
+}
+
+test tokenizeTypedef {
+    const gpa = std.testing.allocator;
+    var tokens = Tokens.init(gpa);
+    defer tokens.deinit();
+    var error_pos: ?[*]const u8 = null;
+
+    const test_string = "type Test ( a , b )\n";
+    try testing.expectEqualStrings(
+        "\n",
+        try tokenizeTypedef(
+            test_string,
+            &tokens,
+            &error_pos,
+        ),
+    );
+    try testing.expectEqual(@as(usize, 6), tokens.items.len);
+    try testing.expectEqual(Token.typedef, tokens.items[0]);
+    try testing.expectEqualDeep(Token{ .name = "Test" }, tokens.items[1]);
+    try testing.expectEqual(Token.enum_begin, tokens.items[2]);
+    try testing.expectEqualDeep(Token{ .name = "a" }, tokens.items[3]);
+    try testing.expectEqualDeep(Token{ .name = "b" }, tokens.items[4]);
+    try testing.expectEqual(Token.enum_end, tokens.items[5]);
 }
