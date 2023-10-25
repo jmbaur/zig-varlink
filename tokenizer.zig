@@ -265,7 +265,8 @@ fn tokenizeStructlike(
     tokens: *Tokens,
     error_pos: *?[*]const u8,
 ) ![]const u8 {
-    const after_opening = try skipWord(input, "(", error_pos);
+    const after_opening = skipWord(input, "(", error_pos) catch
+        return error.ExpectedOpeningParenthesis;
     const first_member = skipAllWhitespace(after_opening);
     const start_marker = try tokens.addOne();
     const after_name = skipAllWhitespace(
