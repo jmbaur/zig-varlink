@@ -12,6 +12,16 @@ const Token = union(enum) {
     typedef,
     enum_begin,
     enum_end,
+    struct_begin,
+    struct_end,
+    maybe,
+    array,
+    dict,
+    bool,
+    int,
+    float,
+    string,
+    object,
 };
 
 const Tokens = std.ArrayList(Token);
@@ -231,11 +241,80 @@ test tokenizeInterface {
     try testing.expectEqualDeep(expected_token, tokens.items[0]);
 }
 
+const TokenizeTypeError = error{ExpectedType} || std.mem.Allocator.Error || TokenizeStructlikeError;
+
+fn tokenizeType(
+    input: []const u8,
+    tokens: *Tokens,
+    error_pos: *?[*]const u8,
+) TokenizeTypeError![]const u8 {
+    var dummy_error_pos: ?[*]const u8 = null;
+    if (skipWord(input, "bool", &dummy_error_pos)) |rest| {
+        try tokens.append(.bool);
+        return rest;
+    } else |_| if (skipWord(input, "int", &dummy_error_pos)) |rest| {
+        try tokens.append(.int);
+        return rest;
+    } else |_| if (skipWord(input, "float", &dummy_error_pos)) |rest| {
+        try tokens.append(.int);
+        return rest;
+    } else |_| if (skipWord(input, "string", &dummy_error_pos)) |rest| {
+        try tokens.append(.string);
+        return rest;
+    } else |_| if (skipWord(input, "[string]", &dummy_error_pos)) |rest| {
+        try tokens.append(.dict);
+        return tokenizeType(rest, tokens, error_pos);
+    } else |_| if (skipWord(input, "[]", &dummy_error_pos)) |rest| {
+        try tokens.append(.array);
+        return tokenizeType(rest, tokens, &dummy_error_pos);
+    } else |_| if (skipWord(input, "?", &dummy_error_pos)) |rest| {
+        try tokens.append(.maybe);
+        // TODO: Ban multiple question marks in a row?
+        return tokenizeType(rest, tokens, error_pos);
+    } else |_| if (skipWord(input, "object", &dummy_error_pos)) |rest| {
+        try tokens.append(.object);
+        return rest;
+    } else |_| {
+        if (input.len == 0 or input[0] != '(') {
+            if (input.len > 0) {
+                error_pos.* = input.ptr;
+            }
+            return error.ExpectedType;
+        }
+        return tokenizeStructlike(input, tokens, error_pos);
+    }
+}
+
+test tokenizeType {
+    const gpa = std.testing.allocator;
+    var tokens = Tokens.init(gpa);
+    defer tokens.deinit();
+    var error_pos: ?[*]const u8 = null;
+    const rest = try tokenizeType("?[](first: int, second: string) ", &tokens, &error_pos);
+    try testing.expectEqualStrings(" ", rest);
+    try testing.expectEqual(@as(usize, 8), tokens.items.len);
+    try testing.expectEqual(Token.maybe, tokens.items[0]);
+    try testing.expectEqual(Token.array, tokens.items[1]);
+    try testing.expectEqual(Token.struct_begin, tokens.items[2]);
+    try testing.expectEqualDeep(Token{ .name = "first" }, tokens.items[3]);
+    try testing.expectEqual(Token.int, tokens.items[4]);
+    try testing.expectEqualDeep(Token{ .name = "second" }, tokens.items[5]);
+    try testing.expectEqual(Token.string, tokens.items[6]);
+    try testing.expectEqual(Token.struct_end, tokens.items[7]);
+    try testing.expect(error_pos == null);
+}
+
+const TokenizeEnumFieldsError = error{
+    InvalidName,
+    UnclosedEnum,
+    ExpectedComma,
+} || std.mem.Allocator.Error;
+
 fn tokenizeEnumFields(
     input: []const u8,
     tokens: *Tokens,
     error_pos: *?[*]const u8,
-) ![]const u8 {
+) TokenizeEnumFieldsError![]const u8 {
     var current_input = input;
     while (true) {
         const rest = try tokenizeName(current_input, tokens, error_pos);
@@ -260,11 +339,68 @@ fn tokenizeEnumFields(
     }
 }
 
+// Because tokenizeType and tokenizeStructLike indirectly call each other with
+// try, their error types are dependent on each other. Thus, TokenizeTypeError
+// is not included in this error set and is only marked to the dependent
+// function declarations instead.
+const TokenizeStructFieldsError = error{
+    InvalidName,
+    ExpectedColon,
+    UnclosedStruct,
+    ExpectedComma,
+} || std.mem.Allocator.Error;
+
+fn tokenizeStructFields(
+    input: []const u8,
+    tokens: *Tokens,
+    error_pos: *?[*]const u8,
+) (TokenizeTypeError || TokenizeStructlikeError)![]const u8 {
+    var current_input = input;
+    while (true) {
+        const after_name = skipAllWhitespace(
+            try tokenizeName(
+                current_input,
+                tokens,
+                error_pos,
+            ),
+        );
+        const before_type = skipAllWhitespace(
+            skipWord(
+                after_name,
+                ":",
+                error_pos,
+            ) catch return error.ExpectedColon,
+        );
+        current_input = skipAllWhitespace(try tokenizeType(before_type, tokens, error_pos));
+        if (current_input.len == 0) {
+            error_pos.* = input.ptr;
+            return error.UnclosedStruct;
+        }
+        switch (current_input[0]) {
+            ',' => current_input = skipAllWhitespace(current_input[1..]),
+            ')' => {
+                try tokens.append(.struct_end);
+                return current_input[1..];
+            },
+            else => {
+                error_pos.* = current_input.ptr;
+                return error.ExpectedComma;
+            },
+        }
+    }
+}
+
+const TokenizeStructlikeError = error{
+    ExpectedOpeningParenthesis,
+    UnclosedStructlike,
+    ExpectedCommaOrColon,
+} || TokenizeEnumFieldsError || TokenizeStructFieldsError;
+
 fn tokenizeStructlike(
     input: []const u8,
     tokens: *Tokens,
     error_pos: *?[*]const u8,
-) ![]const u8 {
+) (TokenizeTypeError || TokenizeStructlikeError)![]const u8 {
     const after_opening = skipWord(input, "(", error_pos) catch
         return error.ExpectedOpeningParenthesis;
     const first_member = skipAllWhitespace(after_opening);
@@ -293,7 +429,14 @@ fn tokenizeStructlike(
                 error_pos,
             );
         },
-        ':' => std.debug.panic("TODO: Implement structs", .{}),
+        ':' => {
+            start_marker.* = .struct_begin;
+            // It's easier to make tokenizeStructFields start from the first
+            // member name instead of the first type. Therefore, drop the name
+            // and let tokenizeStructFields add it back.
+            _ = tokens.pop();
+            return tokenizeStructFields(first_member, tokens, error_pos);
+        },
         else => {
             error_pos.* = after_name.ptr;
             return error.ExpectedCommaOrColon;
@@ -321,7 +464,7 @@ fn tokenizeTypedef(
     return tokenizeStructlike(skipAllWhitespace(after_name), tokens, error_pos);
 }
 
-test tokenizeTypedef {
+test "tokenizeTypedef can handle enums" {
     const gpa = std.testing.allocator;
     var tokens = Tokens.init(gpa);
     defer tokens.deinit();
@@ -343,4 +486,31 @@ test tokenizeTypedef {
     try testing.expectEqualDeep(Token{ .name = "a" }, tokens.items[3]);
     try testing.expectEqualDeep(Token{ .name = "b" }, tokens.items[4]);
     try testing.expectEqual(Token.enum_end, tokens.items[5]);
+}
+
+test "tokenizeTypedef can handle structs" {
+    const gpa = std.testing.allocator;
+    var tokens = Tokens.init(gpa);
+    defer tokens.deinit();
+    var error_pos: ?[*]const u8 = null;
+
+    const test_string = "type Test ( a: int , b: ?int )\n";
+    try testing.expectEqualStrings(
+        "\n",
+        try tokenizeTypedef(
+            test_string,
+            &tokens,
+            &error_pos,
+        ),
+    );
+    try testing.expectEqual(@as(usize, 9), tokens.items.len);
+    try testing.expectEqual(Token.typedef, tokens.items[0]);
+    try testing.expectEqualDeep(Token{ .name = "Test" }, tokens.items[1]);
+    try testing.expectEqual(Token.struct_begin, tokens.items[2]);
+    try testing.expectEqualDeep(Token{ .name = "a" }, tokens.items[3]);
+    try testing.expectEqual(Token.int, tokens.items[4]);
+    try testing.expectEqualDeep(Token{ .name = "b" }, tokens.items[5]);
+    try testing.expectEqual(Token.maybe, tokens.items[6]);
+    try testing.expectEqual(Token.int, tokens.items[7]);
+    try testing.expectEqual(Token.struct_end, tokens.items[8]);
 }
