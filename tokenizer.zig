@@ -10,6 +10,7 @@ const testing = std.testing;
 const Token = union(enum) {
     name: []const u8,
     typedef,
+    @"error",
     enum_begin,
     enum_end,
     struct_begin,
@@ -450,6 +451,18 @@ fn tokenizeStructlike(
     }
 }
 
+fn tokenizeStruct(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) ![]const u8 {
+    if (input.len == 0) {
+        return error.ExpectedStruct;
+    }
+    if (input[0] != '(') {
+        error_pos.* = input.ptr;
+        return error.ExpectedStruct;
+    }
+    try tokens.append(.struct_begin);
+    return tokenizeStructFields(skipAllWhitespace(input[1..]), tokens, error_pos);
+}
+
 fn tokenizeTypedef(
     input: []const u8,
     tokens: *Tokens,
@@ -526,4 +539,48 @@ test "tokenizeTypedef can handle structs" {
     try testing.expectEqual(Token.maybe, tokens.items[6]);
     try testing.expectEqual(Token.int, tokens.items[7]);
     try testing.expectEqual(Token.struct_end, tokens.items[8]);
+}
+
+fn tokenizeError(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) ![]const u8 {
+    const after_error = skipWord(input, "error", error_pos) catch
+        return error.ExpectedError;
+    const after_space = skipAllWhitespace(after_error);
+    if (after_space.len == 0) {
+        error_pos.* = input.ptr;
+        return error.ExpectedError;
+    }
+    if (after_space.ptr == after_error.ptr) {
+        error_pos.* = after_space.ptr;
+        return error.ExpectedSpace;
+    }
+    try tokens.append(.@"error");
+    const after_name = try tokenizeName(after_space, tokens, error_pos);
+    return skipEol(
+        try tokenizeStruct(
+            skipAllWhitespace(after_name),
+            tokens,
+            error_pos,
+        ),
+        error_pos,
+    );
+}
+
+test tokenizeError {
+    const gpa = testing.allocator;
+    var tokens = Tokens.init(gpa);
+    defer tokens.deinit();
+    var error_pos: ?[*]const u8 = null;
+    try testing.expectEqualStrings(
+        " ",
+        try tokenizeError(
+            "error test ( ) \n ",
+            &tokens,
+            &error_pos,
+        ),
+    );
+    try testing.expectEqual(@as(usize, 4), tokens.items.len);
+    try testing.expectEqual(Token.@"error", tokens.items[0]);
+    try testing.expectEqualDeep(Token{ .name = "test" }, tokens.items[1]);
+    try testing.expectEqual(Token.struct_begin, tokens.items[2]);
+    try testing.expectEqual(Token.struct_end, tokens.items[3]);
 }
