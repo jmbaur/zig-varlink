@@ -11,6 +11,7 @@ const Token = union(enum) {
     name: []const u8,
     typedef,
     @"error",
+    method,
     enum_begin,
     enum_end,
     struct_begin,
@@ -583,4 +584,54 @@ test tokenizeError {
     try testing.expectEqualDeep(Token{ .name = "test" }, tokens.items[1]);
     try testing.expectEqual(Token.struct_begin, tokens.items[2]);
     try testing.expectEqual(Token.struct_end, tokens.items[3]);
+}
+
+fn tokenizeMethod(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) ![]const u8 {
+    const after_method = skipWord(input, "method", error_pos) catch
+        return error.ExpectedError;
+    const after_space = skipAllWhitespace(after_method);
+    if (after_space.len == 0) {
+        error_pos.* = input.ptr;
+        return error.ExpectedError;
+    }
+    if (after_space.ptr == after_method.ptr) {
+        error_pos.* = after_space.ptr;
+        return error.ExpectedSpace;
+    }
+    try tokens.append(.method);
+    const after_name = try tokenizeName(after_space, tokens, error_pos);
+    const after_first = skipAllWhitespace(try tokenizeStruct(
+        skipAllWhitespace(after_name),
+        tokens,
+        error_pos,
+    ));
+    const after_arrow = skipAllWhitespace(
+        skipWord(
+            after_first,
+            "->",
+            error_pos,
+        ) catch return error.ExpectedArrow,
+    );
+    return skipEol(
+        try tokenizeStruct(after_arrow, tokens, error_pos),
+        error_pos,
+    );
+}
+
+test tokenizeMethod {
+    const gpa = testing.allocator;
+    var tokens = Tokens.init(gpa);
+    defer tokens.deinit();
+    var error_pos: ?[*]const u8 = null;
+    try testing.expectEqualStrings(
+        " ",
+        try tokenizeMethod("method test () -> () \n ", &tokens, &error_pos),
+    );
+    try testing.expectEqual(@as(usize, 6), tokens.items.len);
+    try testing.expectEqual(Token.method, tokens.items[0]);
+    try testing.expectEqualDeep(Token{ .name = "test" }, tokens.items[1]);
+    try testing.expectEqual(Token.struct_begin, tokens.items[2]);
+    try testing.expectEqual(Token.struct_end, tokens.items[3]);
+    try testing.expectEqual(Token.struct_begin, tokens.items[4]);
+    try testing.expectEqual(Token.struct_end, tokens.items[5]);
 }
