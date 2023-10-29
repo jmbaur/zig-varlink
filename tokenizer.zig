@@ -467,7 +467,14 @@ fn tokenizeTypedef(
     }
     try tokens.append(.typedef);
     const after_name = try tokenizeName(after_space, tokens, error_pos);
-    return tokenizeStructlike(skipAllWhitespace(after_name), tokens, error_pos);
+    return skipEol(
+        try tokenizeStructlike(
+            skipAllWhitespace(after_name),
+            tokens,
+            error_pos,
+        ),
+        error_pos,
+    );
 }
 
 test "tokenizeTypedef can handle enums" {
@@ -476,9 +483,9 @@ test "tokenizeTypedef can handle enums" {
     defer tokens.deinit();
     var error_pos: ?[*]const u8 = null;
 
-    const test_string = "type Test ( a , b )\n";
+    const test_string = "type Test ( a , b ) \n ";
     try testing.expectEqualStrings(
-        "\n",
+        " ",
         try tokenizeTypedef(
             test_string,
             &tokens,
@@ -502,7 +509,7 @@ test "tokenizeTypedef can handle structs" {
 
     const test_string = "type Test ( a: int , b: ?int )\n";
     try testing.expectEqualStrings(
-        "\n",
+        "",
         try tokenizeTypedef(
             test_string,
             &tokens,
