@@ -357,6 +357,15 @@ fn tokenizeStructFields(
 ) (TokenizeTypeError || TokenizeStructlikeError)![]const u8 {
     var current_input = input;
     while (true) {
+        if (current_input.len == 0) {
+            error_pos.* = input.ptr;
+            return error.UnclosedStruct;
+        }
+        if (current_input[0] == ')') {
+            try tokens.append(.struct_end);
+            return current_input[1..];
+        }
+
         const after_name = skipAllWhitespace(
             try tokenizeName(
                 current_input,
@@ -378,10 +387,7 @@ fn tokenizeStructFields(
         }
         switch (current_input[0]) {
             ',' => current_input = skipAllWhitespace(current_input[1..]),
-            ')' => {
-                try tokens.append(.struct_end);
-                return current_input[1..];
-            },
+            ')' => {},
             else => {
                 error_pos.* = current_input.ptr;
                 return error.ExpectedComma;
