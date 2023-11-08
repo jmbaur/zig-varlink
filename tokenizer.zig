@@ -221,7 +221,7 @@ fn tokenizeInterface(
         return error.ExpectedInterfaceKeyword;
     const name_start = skipAllWhitespace(after_interface);
     const eol_start = try tokenizeName(name_start, tokens, error_pos);
-    return skipEol(eol_start, &error_pos.*);
+    return skipEol(eol_start, error_pos);
 }
 
 test tokenizeInterface {
