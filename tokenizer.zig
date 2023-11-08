@@ -7,7 +7,7 @@
 const std = @import("std");
 const testing = std.testing;
 
-const Token = union(enum) {
+pub const Token = union(enum) {
     name: []const u8,
     typedef,
     @"error",
@@ -26,7 +26,7 @@ const Token = union(enum) {
     object,
 };
 
-const Tokens = std.ArrayList(Token);
+pub const Tokens = std.ArrayList(Token);
 
 /// Skip all whitespace until the end of the line. Returns a boolean containing
 /// true if the EOL was reached and the rest of the string. Expects valid UTF-8
