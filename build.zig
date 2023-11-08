@@ -9,14 +9,14 @@ pub fn build(b: *Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const unit_tests = b.addTest(.{
-        .name = "unit_tests",
+    const tokenizer_tests = b.addTest(.{
+        .name = "tokenizer_tests",
         .root_source_file = .{ .path = "tokenizer.zig" },
         .target = target,
         .optimize = optimize,
     });
 
     const test_step = b.step("test", "Run tests");
-    const run_unit_tests = b.addRunArtifact(unit_tests);
-    test_step.dependOn(&run_unit_tests.step);
+    const run_tokenizer_tests = b.addRunArtifact(tokenizer_tests);
+    test_step.dependOn(&run_tokenizer_tests.step);
 }
