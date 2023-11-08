@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const std = @import("std");
-const Builder = std.build.Builder;
+const Build = std.Build;
 
-pub fn build(b: *Builder) void {
+pub fn build(b: *Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
