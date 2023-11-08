@@ -635,3 +635,24 @@ test tokenizeMethod {
     try testing.expectEqual(Token.struct_begin, tokens.items[4]);
     try testing.expectEqual(Token.struct_end, tokens.items[5]);
 }
+
+pub fn tokenize(input: []const u8, error_pos: *?[*]const u8, allocator: std.mem.Allocator) !Tokens {
+    var tokens = Tokens.init(allocator);
+    errdefer tokens.deinit();
+    const before_interface = skipAllWhitespace(input);
+    const after_interface = try tokenizeInterface(before_interface, &tokens, error_pos);
+    var current_input = after_interface;
+    while (true) {
+        current_input = skipAllWhitespace(current_input);
+        if (current_input.len == 0) {
+            break;
+        }
+        switch (current_input[0]) {
+            'm' => current_input = try tokenizeMethod(current_input, &tokens, error_pos),
+            't' => current_input = try tokenizeTypedef(current_input, &tokens, error_pos),
+            'e' => current_input = try tokenizeError(current_input, &tokens, error_pos),
+            else => {},
+        }
+    }
+    return tokens;
+}
