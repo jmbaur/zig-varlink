@@ -15,7 +15,7 @@ fn writeType(
                 return writeEnumBody(stream, tokens[i..]);
             },
             .struct_begin => {
-                return writeStructBody(stream, tokens[i..]);
+                return writeStruct(stream, tokens[i..]);
             },
             .bool => {
                 try stream.writeAll("bool");
@@ -59,12 +59,11 @@ fn writeEnumBody(
     return current_tokens[1..];
 }
 
-fn writeStructBody(
+fn writeStructFields(
     stream: anytype,
     tokens: []const Token,
 ) @TypeOf(stream).Error![]const Token {
     std.debug.assert(tokens[0] == .struct_begin);
-    try stream.writeAll("struct {\n");
     var current_tokens = tokens[1..];
     while (current_tokens[0] != .struct_end) {
         const name = current_tokens[0].name;
@@ -73,8 +72,17 @@ fn writeStructBody(
         current_tokens = try writeType(stream, current_tokens[1..]);
         try stream.writeAll(",\n");
     }
+    return current_tokens;
+}
+
+fn writeStruct(
+    stream: anytype,
+    tokens: []const Token,
+) @TypeOf(stream).Error![]const Token {
+    try stream.writeAll("struct {\n");
+    const struct_end = try writeStructFields(stream, tokens);
     try stream.writeByte('}');
-    return current_tokens[1..];
+    return struct_end[1..];
 }
 
 fn writeMethod(
@@ -85,9 +93,9 @@ fn writeMethod(
     try stream.writeAll("pub const ");
     try stream.writeAll(tokens[1].name);
     try stream.writeAll(" = struct {\npub const Parameters = ");
-    const after_params = try writeStructBody(stream, tokens[2..]);
+    const after_params = try writeStruct(stream, tokens[2..]);
     try stream.writeAll(";\npub const ReturnType = ");
-    const after_ret_type = try writeStructBody(stream, after_params);
+    const after_ret_type = try writeStruct(stream, after_params);
     try stream.writeAll(";\n};\n");
     return after_ret_type;
 }
@@ -99,10 +107,13 @@ fn writeError(
     std.debug.assert(tokens[0] == .@"error");
     try stream.writeAll("pub const ");
     try stream.writeAll(tokens[1].name);
-    try stream.writeAll(" = ");
-    const after_struct = writeStructBody(stream, tokens[2..]);
-    try stream.writeAll(";\n");
-    return after_struct;
+    try stream.writeAll(" = struct {\npub const error_name = interface.name ++ ");
+    try stream.writeAll("\".");
+    try stream.writeAll(tokens[1].name);
+    try stream.writeAll("\";\n");
+    const struct_end = try writeStructFields(stream, tokens[2..]);
+    try stream.writeAll("};\n");
+    return struct_end[1..];
 }
 
 fn writeMember(
@@ -122,11 +133,12 @@ fn writeInterface(
     tokens: []const Token,
     description: []const u8,
 ) @TypeOf(stream).Error!void {
-    try stream.writeAll("// ");
+    try stream.writeAll("const std = @import(\"std\");\n" ++
+        "const interface = @This();\n" ++
+        "pub const name = \"");
     try stream.writeAll(tokens[0].name);
-    try stream.writeAll("\nconst std = @import(\"std\");\n");
     // TODO: Somehow use @embedFile instead?
-    try stream.writeAll("pub const description =");
+    try stream.writeAll("\";\npub const description =");
     var line_iterator = std.mem.tokenizeScalar(u8, description, '\n');
     while (line_iterator.next()) |line| {
         try stream.writeAll("\n\\\\");
