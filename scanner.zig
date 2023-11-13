@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Väinö Mäkelä <vaino.makela@iki.fi>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 const std = @import("std");
 const tokenizer = @import("tokenizer.zig");
 const Token = tokenizer.Token;
