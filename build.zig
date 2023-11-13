@@ -17,16 +17,50 @@ pub fn build(b: *Build) void {
     });
     b.installArtifact(scanner);
 
+    const orgVarlinkService = scanFile(
+        b,
+        scanner,
+        "org.varlink.service.varlink",
+        "orgVarlinkService.zig",
+    );
+    const handler = b.addModule("varlink-handler", .{
+        .source_file = .{ .path = "handler.zig" },
+        .dependencies = &[_]std.Build.ModuleDependency{
+            .{
+                .name = "orgVarlinkService",
+                .module = orgVarlinkService,
+            },
+        },
+    });
+
     const tokenizer_tests = b.addTest(.{
         .name = "tokenizer_tests",
         .root_source_file = .{ .path = "tokenizer.zig" },
         .target = target,
         .optimize = optimize,
     });
+    const handler_tests = b.addTest(.{
+        .name = "handler_tests",
+        .root_source_file = .{ .path = "test/handler-test.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    handler_tests.addModule("varlink-handler", handler);
+    handler_tests.addModule(
+        "zigVarlinkTest",
+        scanFile(
+            b,
+            scanner,
+            "test/org.zig-varlink.test.varlink",
+            "zigVarlinkTest.zig",
+        ),
+    );
 
     const test_step = b.step("test", "Run tests");
     const run_tokenizer_tests = b.addRunArtifact(tokenizer_tests);
+    const run_handler_tests = b.addRunArtifact(handler_tests);
     test_step.dependOn(&run_tokenizer_tests.step);
+    test_step.dependOn(&run_handler_tests.step);
 }
 
 pub fn scanFile(

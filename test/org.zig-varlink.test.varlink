@@ -1,0 +1,3 @@
+interface org.zig-varlink.test
+
+method TestCall(in: int) -> (out: int)
