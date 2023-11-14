@@ -37,14 +37,13 @@ fn parseToType(
 /// byte is not written to allow usage with transports not using one.
 pub fn serializeResponse(stream: anytype, response: anytype) !void {
     // TODO: Custom and proper implementation
-    const ValueType = comptime for (@typeInfo(@TypeOf(response)).Struct.decls) |decl| {
-        if (std.mem.eql(u8, "error_name", decl.name)) {
-            break struct {
-                parameters: @TypeOf(response),
-                @"error": []const u8 = @TypeOf(response).error_name,
-            };
+    const ValueType = if (@hasDecl(@TypeOf(response), "error_name"))
+        struct {
+            parameters: @TypeOf(response),
+            @"error": []const u8 = @TypeOf(response).error_name,
         }
-    } else struct { parameters: @TypeOf(response) };
+    else
+        struct { parameters: @TypeOf(response) };
 
     try std.json.stringify(
         ValueType{ .parameters = response },
@@ -68,13 +67,9 @@ fn handleMethod(
         if (@typeInfo(@TypeOf(Request)) != .Type) {
             continue;
         }
-        comptime for (@typeInfo(Request).Struct.decls) |request_decl| {
-            if (std.mem.eql(u8, "Parameters", request_decl.name)) {
-                break;
-            }
-        } else {
+        if (!@hasDecl(Request, "Parameters")) {
             continue;
-        };
+        }
         if (std.mem.eql(u8, decl.name, method)) {
             var invalid_parameter: ?[]const u8 = "";
             const input = parseToType(
