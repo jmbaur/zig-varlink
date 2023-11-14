@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Väinö Mäkelä <vaino.makela@iki.fi>
 //
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 //! A tokenizer for Varlink interface files.
 

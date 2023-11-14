@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Väinö Mäkelä <vaino.makela@iki.fi>
 //
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 const std = @import("std");
 const handler = @import("varlink-handler");
