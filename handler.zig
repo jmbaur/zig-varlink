@@ -87,12 +87,24 @@ fn handleMethod(
                 },
                 else => return err,
             };
-            interface_context.handleRequest(
-                input,
-                response_stream,
-                options,
-                extra_data,
-            );
+            const request_function = "handle" ++ decl.name;
+            if (@hasDecl(@TypeOf(interface_context.*), request_function)) {
+                @call(.auto, @field(
+                    @TypeOf(interface_context.*),
+                    request_function,
+                ), .{
+                    interface_context,
+                    input,
+                    response_stream,
+                    options,
+                    extra_data,
+                });
+            } else {
+                serializeResponse(
+                    response_stream,
+                    orgVarlinkService.MethodNotImplemented{ .method = qualified_method },
+                );
+            }
             return;
         }
     }
@@ -211,59 +223,65 @@ pub fn handleRequest(
 fn OrgVarlinkServiceImpl(comptime Context: type) type {
     return struct {
         const interface = orgVarlinkService;
-        fn handleRequest(
+
+        fn handleGetInfo(
             context: *@This(),
-            parameters: anytype,
+            parameters: orgVarlinkService.GetInfo.Parameters,
+            response_stream: anytype,
+            options: Options,
+            extra_data: void,
+        ) void {
+            _ = context;
+            _ = parameters;
+            _ = extra_data;
+            if (options.oneway) {
+                return;
+            }
+            serializeResponse(response_stream, orgVarlinkService.GetInfo.ReturnType{
+                .vendor = Context.vendor,
+                .product = Context.product,
+                .version = Context.version,
+                .url = Context.url,
+                .interfaces = .{"org.varlink.service"} ++ std.meta.fieldNames(Context),
+            }) catch {};
+        }
+
+        fn handleGetInterfaceDescription(
+            context: *@This(),
+            parameters: orgVarlinkService.GetInterfaceDescription.Parameters,
             response_stream: anytype,
             options: Options,
             extra_data: void,
         ) void {
             _ = context;
             _ = extra_data;
-            switch (@TypeOf(parameters)) {
-                orgVarlinkService.GetInfo.Parameters => {
-                    if (options.oneway) {
-                        return;
-                    }
-                    serializeResponse(response_stream, orgVarlinkService.GetInfo.ReturnType{
-                        .vendor = Context.vendor,
-                        .product = Context.product,
-                        .version = Context.version,
-                        .url = Context.url,
-                        .interfaces = .{"org.varlink.service"} ++ std.meta.fieldNames(Context),
-                    }) catch {};
-                },
-                orgVarlinkService.GetInterfaceDescription.Parameters => {
-                    if (options.oneway) {
-                        return;
-                    }
-                    inline for (@typeInfo(Context).Struct.fields) |field| {
-                        if (std.mem.eql(u8, parameters.interface, field.name)) {
-                            serializeResponse(
-                                response_stream,
-                                orgVarlinkService.GetInterfaceDescription.ReturnType{
-                                    .description = field.type.interface.description,
-                                },
-                            ) catch {};
-                            return;
-                        }
-                    }
-                    if (std.mem.eql(u8, "org.varlink.service", parameters.interface)) {
-                        serializeResponse(
-                            response_stream,
-                            orgVarlinkService.GetInterfaceDescription.ReturnType{
-                                .description = orgVarlinkService.description,
-                            },
-                        ) catch {};
-                        return;
-                    }
+            if (options.oneway) {
+                return;
+            }
+            inline for (@typeInfo(Context).Struct.fields) |field| {
+                if (std.mem.eql(u8, parameters.interface, field.name)) {
                     serializeResponse(
                         response_stream,
-                        orgVarlinkService.InterfaceNotFound{ .interface = parameters.interface },
+                        orgVarlinkService.GetInterfaceDescription.ReturnType{
+                            .description = field.type.interface.description,
+                        },
                     ) catch {};
-                },
-                else => @compileError("Unhandled org.varlink.service request!"),
+                    return;
+                }
             }
+            if (std.mem.eql(u8, "org.varlink.service", parameters.interface)) {
+                serializeResponse(
+                    response_stream,
+                    orgVarlinkService.GetInterfaceDescription.ReturnType{
+                        .description = orgVarlinkService.description,
+                    },
+                ) catch {};
+                return;
+            }
+            serializeResponse(
+                response_stream,
+                orgVarlinkService.InterfaceNotFound{ .interface = parameters.interface },
+            ) catch {};
         }
     };
 }

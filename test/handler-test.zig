@@ -14,25 +14,20 @@ const Context = struct {
     @"org.zig-varlink.test": struct {
         pub const interface = zigVarlinkTest;
         counter: u32 = 0,
-        pub fn handleRequest(
+        pub fn handleTestCall(
             context: *@This(),
-            parameters: anytype,
+            parameters: zigVarlinkTest.TestCall.Parameters,
             response_stream: anytype,
             options: handler.Options,
             extra_info: u32,
         ) void {
-            switch (@TypeOf(parameters)) {
-                zigVarlinkTest.TestCall.Parameters => {
-                    context.counter += 1;
-                    if (options.oneway) {
-                        return;
-                    }
-                    handler.serializeResponse(response_stream, zigVarlinkTest.TestCall.ReturnType{
-                        .out = parameters.in + context.counter + extra_info,
-                    }) catch {};
-                },
-                else => @compileLog(parameters),
+            context.counter += 1;
+            if (options.oneway) {
+                return;
             }
+            handler.serializeResponse(response_stream, zigVarlinkTest.TestCall.ReturnType{
+                .out = parameters.in + context.counter + extra_info,
+            }) catch {};
         }
     } = .{},
 };
