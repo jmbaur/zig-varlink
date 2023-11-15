@@ -35,7 +35,9 @@ fn skipLineWhitespace(input: []const u8) struct { bool, []const u8 } {
     var utf8 = std.unicode.Utf8View.initUnchecked(input).iterator();
     var in_comment = false;
     var start: usize = 0;
-    while (utf8.nextCodepoint()) |codepoint| : (start += 1) {
+    while (utf8.nextCodepoint()) |codepoint| : ({
+        start += std.unicode.utf8CodepointSequenceLength(codepoint) catch unreachable;
+    }) {
         switch (codepoint) {
             '\n', '\r', '\u{2028}', '\u{2029}' => {
                 return .{ true, input[start + 1 ..] };
@@ -75,6 +77,7 @@ test skipAllWhitespace {
     try testing.expectEqualStrings("a", skipAllWhitespace("a"));
     try testing.expectEqualStrings("a", skipAllWhitespace(" \u{00A0}\t\na"));
     try testing.expectEqualStrings("test ", skipAllWhitespace("\n # comment\ntest "));
+    try testing.expectEqualStrings("test ", skipAllWhitespace("# ¯\\_(ツ)_/¯ \ntest "));
 }
 
 /// Skip all whitespace and comments until EOL. Returns error.ExpectedEol if an
