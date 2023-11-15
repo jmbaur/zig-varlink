@@ -41,6 +41,10 @@ fn writeType(
                 try stream.writeAll("std.json.Value");
                 return tokens[i + 1 ..];
             },
+            .name => |name| {
+                try stream.writeAll(name);
+                return tokens[i + 1 ..];
+            },
             else => unreachable,
         }
     }

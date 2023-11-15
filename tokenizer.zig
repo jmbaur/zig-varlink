@@ -281,10 +281,7 @@ fn tokenizeType(
         return rest;
     } else |_| {
         if (input.len == 0 or input[0] != '(') {
-            if (input.len > 0) {
-                error_pos.* = input.ptr;
-            }
-            return error.ExpectedType;
+            return tokenizeName(input, tokens, error_pos);
         }
         return tokenizeStructlike(input, tokens, error_pos);
     }
