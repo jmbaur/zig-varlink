@@ -125,6 +125,19 @@ fn writeError(
     return struct_end[1..];
 }
 
+fn writeTypedef(
+    stream: anytype,
+    tokens: []const Token,
+) @TypeOf(stream).Error![]const Token {
+    std.debug.assert(tokens[0] == .typedef);
+    try stream.writeAll("pub const ");
+    try stream.writeAll(tokens[1].name);
+    try stream.writeAll(" = ");
+    const after_struct = try writeStruct(stream, tokens[2..]);
+    try stream.writeAll(";\n");
+    return after_struct;
+}
+
 fn writeMember(
     stream: anytype,
     tokens: []const Token,
@@ -132,7 +145,7 @@ fn writeMember(
     return switch (tokens[0]) {
         .method => writeMethod(stream, tokens),
         .@"error" => writeError(stream, tokens),
-        .typedef => @panic("TODO: Implement typedefs"),
+        .typedef => writeTypedef(stream, tokens),
         else => unreachable,
     };
 }
