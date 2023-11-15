@@ -58,6 +58,7 @@ fn writeEnumBody(
         const name = current_tokens[0].name;
         try stream.writeAll(name);
         try stream.writeAll(",\n");
+        current_tokens = current_tokens[1..];
     }
     try stream.writeByte('}');
     return current_tokens[1..];
