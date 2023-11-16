@@ -40,7 +40,7 @@ fn skipLineWhitespace(input: []const u8) struct { bool, []const u8 } {
     }) {
         switch (codepoint) {
             '\n', '\r', '\u{2028}', '\u{2029}' => {
-                return .{ true, input[start + 1 ..] };
+                return .{ true, input[start + std.unicode.utf8CodepointSequenceLength(codepoint) ..] };
             },
             ' ',
             '\t',
