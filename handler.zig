@@ -89,7 +89,7 @@ fn handleMethod(
             };
             const request_function = "handle" ++ decl.name;
             if (@hasDecl(@TypeOf(interface_context.*), request_function)) {
-                @call(.auto, @field(
+                return @call(.auto, @field(
                     @TypeOf(interface_context.*),
                     request_function,
                 ), .{
@@ -100,12 +100,11 @@ fn handleMethod(
                     extra_data,
                 });
             } else {
-                try serializeResponse(
+                return serializeResponse(
                     response_stream,
                     orgVarlinkService.MethodNotImplemented{ .method = qualified_method },
                 );
             }
-            return;
         }
     }
     try serializeResponse(

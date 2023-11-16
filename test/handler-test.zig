@@ -20,14 +20,14 @@ const Context = struct {
             response_stream: anytype,
             options: handler.Options,
             extra_info: u32,
-        ) void {
+        ) !void {
             context.counter += 1;
             if (options.oneway) {
                 return;
             }
-            handler.serializeResponse(response_stream, zigVarlinkTest.TestCall.ReturnType{
+            try handler.serializeResponse(response_stream, zigVarlinkTest.TestCall.ReturnType{
                 .out = parameters.in + context.counter + extra_info,
-            }) catch {};
+            });
         }
     } = .{},
 };
