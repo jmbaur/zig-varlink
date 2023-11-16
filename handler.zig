@@ -100,7 +100,7 @@ fn handleMethod(
                     extra_data,
                 });
             } else {
-                serializeResponse(
+                try serializeResponse(
                     response_stream,
                     orgVarlinkService.MethodNotImplemented{ .method = qualified_method },
                 );
