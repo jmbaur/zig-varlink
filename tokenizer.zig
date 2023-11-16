@@ -39,8 +39,9 @@ fn skipLineWhitespace(input: []const u8) struct { bool, []const u8 } {
         start += std.unicode.utf8CodepointSequenceLength(codepoint) catch unreachable;
     }) {
         switch (codepoint) {
-            '\n', '\r', '\u{2028}', '\u{2029}' => {
-                return .{ true, input[start + std.unicode.utf8CodepointSequenceLength(codepoint) ..] };
+            '\n', '\r', '\u{2028}', '\u{2029}' => return .{
+                true,
+                input[start + (std.unicode.utf8CodepointSequenceLength(codepoint) catch unreachable) ..],
             },
             ' ',
             '\t',
