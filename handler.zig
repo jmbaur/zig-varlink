@@ -226,20 +226,20 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
             response_stream: anytype,
             options: Options,
             extra_data: void,
-        ) void {
+        ) !void {
             _ = context;
             _ = parameters;
             _ = extra_data;
             if (options.oneway) {
                 return;
             }
-            serializeResponse(response_stream, orgVarlinkService.GetInfo.ReturnType{
+            try serializeResponse(response_stream, orgVarlinkService.GetInfo.ReturnType{
                 .vendor = Context.vendor,
                 .product = Context.product,
                 .version = Context.version,
                 .url = Context.url,
                 .interfaces = .{"org.varlink.service"} ++ std.meta.fieldNames(Context),
-            }) catch {};
+            });
         }
 
         fn handleGetInterfaceDescription(
@@ -248,7 +248,7 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
             response_stream: anytype,
             options: Options,
             extra_data: void,
-        ) void {
+        ) !void {
             _ = context;
             _ = extra_data;
             if (options.oneway) {
@@ -256,28 +256,28 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
             }
             inline for (@typeInfo(Context).Struct.fields) |field| {
                 if (std.mem.eql(u8, parameters.interface, field.name)) {
-                    serializeResponse(
+                    try serializeResponse(
                         response_stream,
                         orgVarlinkService.GetInterfaceDescription.ReturnType{
                             .description = field.type.interface.description,
                         },
-                    ) catch {};
+                    );
                     return;
                 }
             }
             if (std.mem.eql(u8, "org.varlink.service", parameters.interface)) {
-                serializeResponse(
+                try serializeResponse(
                     response_stream,
                     orgVarlinkService.GetInterfaceDescription.ReturnType{
                         .description = orgVarlinkService.description,
                     },
-                ) catch {};
+                );
                 return;
             }
-            serializeResponse(
+            try serializeResponse(
                 response_stream,
                 orgVarlinkService.InterfaceNotFound{ .interface = parameters.interface },
-            ) catch {};
+            );
         }
     };
 }
