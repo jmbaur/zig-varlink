@@ -14,23 +14,122 @@ pub const Options = packed struct {
     upgrade: bool = false,
 };
 
-fn parseToType(
+const JsonParsingError = std.mem.Allocator.Error || error{InvalidParameter};
+
+fn parseToStruct(
     comptime T: type,
     allocator: std.mem.Allocator,
     json: std.json.Value,
     invalid_parameter: *?[]const u8,
-) (std.mem.Allocator.Error || error{InvalidParameter})!T {
-    // TODO: Custom and proper implementation
-    _ = invalid_parameter;
-    return std.json.parseFromValueLeaky(
-        T,
-        allocator,
-        json,
-        .{ .ignore_unknown_fields = true },
-    ) catch |err| switch (err) {
-        error.OutOfMemory => return error.OutOfMemory,
-        else => return error.InvalidParameter,
+) JsonParsingError!T {
+    if (T == std.json.Value) {
+        return json;
+    }
+    const struc = switch (@typeInfo(T)) {
+        .Struct => |struc| struc,
+        else => @compileError("Expected a struct, got: " ++ @typeName(T)),
     };
+    const map: std.json.ObjectMap = blk: {
+        switch (json) {
+            .object => |map| break :blk map,
+            else => return error.InvalidParameter,
+        }
+    };
+    var result: T = undefined;
+    inline for (struc.fields) |field| {
+        if (map.get(field.name)) |value| {
+            invalid_parameter.* = field.name;
+            @field(result, field.name) = try parseToType(
+                field.type,
+                allocator,
+                value,
+            );
+        } else if (@typeInfo(field.type) == .Optional) {
+            @field(result, field.name) = null;
+        } else {
+            invalid_parameter.* = field.name;
+            return error.InvalidParameter;
+        }
+    }
+    return result;
+}
+
+fn parseToType(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    json: std.json.Value,
+) JsonParsingError!T {
+    switch (@typeInfo(T)) {
+        .Bool => {
+            switch (json) {
+                .bool => |b| return b,
+                else => return error.InvalidParameter,
+            }
+        },
+        .Int => {
+            switch (json) {
+                .integer => |i| return i,
+                else => return error.InvalidParameter,
+            }
+        },
+        .Float => {
+            switch (json) {
+                .float => |f| return f,
+                else => return error.InvalidParameter,
+            }
+        },
+        .Pointer => |pointer| {
+            if (pointer.size != .Slice) {
+                @compileError("Expected a slice");
+            }
+            // The scanner always uses i64 as the integer type, so there is no
+            // possibility of confusing strings with arrays of integers.
+            if (pointer.child == u8) {
+                switch (json) {
+                    .string => |s| return s,
+                    else => return error.InvalidParameter,
+                }
+            } else {
+                switch (json) {
+                    .array => |arr| {
+                        // Exact memory management is not needed here as we are
+                        // using an arena allocator.
+                        const result = try allocator.alloc(pointer.child, arr.items.len);
+                        for (arr.items, 0..) |item, i| {
+                            result[i] = try parseToType(
+                                pointer.child,
+                                allocator,
+                                item,
+                            );
+                        }
+                        return result;
+                    },
+                    else => return error.InvalidParameter,
+                }
+            }
+        },
+        .Optional => |optional| {
+            switch (json) {
+                .null => return null,
+                else => return try parseToType(
+                    optional.child,
+                    allocator,
+                    json,
+                ),
+            }
+        },
+        .Struct => {
+            var dummy_invalid_parameter: ?[]const u8 = null;
+            return parseToStruct(T, allocator, json, &dummy_invalid_parameter);
+        },
+        .Enum => {
+            switch (json) {
+                .string => |str| return std.meta.stringToEnum(T, str) orelse error.InvalidParameter,
+                else => return error.InvalidParameter,
+            }
+        },
+        else => @compileError("Unsupported type: " ++ @typeName(T)),
+    }
 }
 
 /// Serialize a Varlink response or error to the given writer. A trailing zero
@@ -71,8 +170,8 @@ fn handleMethod(
             continue;
         }
         if (std.mem.eql(u8, decl.name, method)) {
-            var invalid_parameter: ?[]const u8 = "";
-            const input = parseToType(
+            var invalid_parameter: ?[]const u8 = null;
+            const input = parseToStruct(
                 Request.Parameters,
                 allocator,
                 parameters,
