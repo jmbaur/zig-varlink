@@ -53,7 +53,6 @@ pub fn serializeResponse(stream: anytype, response: anytype) !void {
 }
 
 fn handleMethod(
-    qualified_method: []const u8,
     method: []const u8,
     parameters: std.json.Value,
     response_stream: anytype,
@@ -102,14 +101,14 @@ fn handleMethod(
             } else {
                 return serializeResponse(
                     response_stream,
-                    orgVarlinkService.MethodNotImplemented{ .method = qualified_method },
+                    orgVarlinkService.MethodNotImplemented{ .method = method },
                 );
             }
         }
     }
     try serializeResponse(
         response_stream,
-        orgVarlinkService.MethodNotFound{ .method = qualified_method },
+        orgVarlinkService.MethodNotFound{ .method = method },
     );
 }
 
@@ -187,7 +186,6 @@ pub fn handleRequest(
     inline for (@typeInfo(@TypeOf(context.*)).Struct.fields) |field| {
         if (std.mem.eql(u8, field.name, interface)) {
             try handleMethod(
-                qualified_method,
                 method,
                 .{ .object = parameters },
                 response_stream,
@@ -202,7 +200,6 @@ pub fn handleRequest(
     if (std.mem.eql(u8, "org.varlink.service", interface)) {
         var varlink_service_context: VarlinkService = .{};
         try handleMethod(
-            qualified_method,
             method,
             .{ .object = parameters },
             response_stream,
