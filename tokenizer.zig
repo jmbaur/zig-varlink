@@ -414,6 +414,11 @@ fn tokenizeStructlike(
         return error.ExpectedOpeningParenthesis;
     const first_member = skipAllWhitespace(after_opening);
     const start_marker = try tokens.addOne();
+    if (first_member.len > 0 and first_member[0] == ')') {
+        start_marker.* = .struct_begin;
+        try tokens.append(.struct_end);
+        return first_member[1..];
+    }
     const after_name = skipAllWhitespace(
         try tokenizeName(
             first_member,
