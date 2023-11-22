@@ -262,7 +262,7 @@ fn tokenizeType(
         try tokens.append(.int);
         return rest;
     } else |_| if (skipWord(input, "float", &dummy_error_pos)) |rest| {
-        try tokens.append(.int);
+        try tokens.append(.float);
         return rest;
     } else |_| if (skipWord(input, "string", &dummy_error_pos)) |rest| {
         try tokens.append(.string);
