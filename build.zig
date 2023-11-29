@@ -41,7 +41,7 @@ pub fn build(b: *Build) void {
     });
     const handler_tests = b.addTest(.{
         .name = "handler_tests",
-        .root_source_file = .{ .path = "test/handler-test.zig" },
+        .root_source_file = .{ .path = "test/tests.zig" },
         .target = target,
         .optimize = optimize,
     });
@@ -55,6 +55,25 @@ pub fn build(b: *Build) void {
             "zigVarlinkTest.zig",
         ),
     );
+
+    const certification = b.addExecutable(.{
+        .name = "zig-varlink-certification",
+        .root_source_file = .{ .path = "test/certification.zig" },
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    certification.addModule("varlink-handler", handler);
+    certification.addModule(
+        "orgVarlinkCertification",
+        scanFile(
+            b,
+            scanner,
+            "test/org.varlink.certification.varlink",
+            "orgVarlinkCertification.zig",
+        ),
+    );
+    b.installArtifact(certification);
 
     const test_step = b.step("test", "Run tests");
     const run_tokenizer_tests = b.addRunArtifact(tokenizer_tests);
