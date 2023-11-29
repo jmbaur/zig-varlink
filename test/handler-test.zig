@@ -18,6 +18,7 @@ const Context = struct {
             context: *@This(),
             parameters: zigVarlinkTest.TestCall.Parameters,
             response_stream: anytype,
+            allocator: std.mem.Allocator,
             options: handler.Options,
             extra_info: u32,
         ) !void {
@@ -25,9 +26,13 @@ const Context = struct {
             if (options.oneway) {
                 return;
             }
-            try handler.serializeResponse(response_stream, zigVarlinkTest.TestCall.ReturnType{
-                .out = parameters.in + context.counter + extra_info,
-            });
+            try handler.serializeResponse(
+                response_stream,
+                zigVarlinkTest.TestCall.ReturnType{
+                    .out = parameters.in + context.counter + extra_info,
+                },
+                allocator,
+            );
         }
     } = .{},
 };

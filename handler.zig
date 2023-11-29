@@ -157,22 +157,104 @@ fn parseToType(
     }
 }
 
+/// Serialize value to std.json.Value. This method does free memory on
+/// allocation errors or provide a way to free the allocated memory, so it's
+/// recommended to use it with an arena allocator.
+pub fn jsonize(value: anytype, allocator: std.mem.Allocator) std.mem.Allocator.Error!std.json.Value {
+    const T = @TypeOf(value);
+    if (T == std.json.Value) {
+        return value;
+    }
+    if (comptime isHashMap(T)) {
+        var result = std.StringArrayHashMap(std.json.Value).init(allocator);
+        var it = value.iterator();
+        while (it.next()) |entry| {
+            try result.putNoClobber(
+                entry.key_ptr.*,
+                try jsonize(entry.value_ptr.*, allocator),
+            );
+        }
+        return .{ .object = result };
+    }
+    switch (@typeInfo(T)) {
+        .Bool => return .{ .bool = value },
+        .Int => return .{ .integer = value },
+        .Float => return .{ .float = value },
+        .Pointer => |pointer| {
+            if (pointer.size == .One) {
+                // TODO: Custom compile error for non-string?
+                return .{ .string = value };
+            }
+            if (pointer.size != .Slice) {
+                @compileError("Many-item and C pointers are not supported");
+            }
+            if (pointer.child == u8) {
+                return .{ .string = value };
+            } else {
+                var arr = try std.ArrayList(std.json.Value).initCapacity(
+                    allocator,
+                    value.len,
+                );
+                for (value) |element| {
+                    arr.appendAssumeCapacity(try jsonize(element, allocator));
+                }
+                return .{ .array = arr };
+            }
+        },
+        .Optional => {
+            if (value) |child| {
+                return jsonize(child, allocator);
+            } else {
+                return .null;
+            }
+        },
+        .Struct => |struc| {
+            var result = std.StringArrayHashMap(std.json.Value).init(allocator);
+            inline for (struc.fields) |field| {
+                try result.putNoClobber(
+                    field.name,
+                    try jsonize(@field(value, field.name), allocator),
+                );
+            }
+            return .{ .object = result };
+        },
+        .Enum => return .{ .string = @tagName(value) },
+        else => @compileError("Unsupported type: " ++ @typeName(T)),
+    }
+}
+
+fn writeJson(stream: anytype, json: std.json.Value) !void {
+    var write_stream = std.json.writeStream(stream, .{});
+    try json.jsonStringify(&write_stream);
+}
+
 /// Serialize a Varlink response or error to the given writer. A trailing zero
 /// byte is not written to allow usage with transports not using one.
-pub fn serializeResponse(stream: anytype, response: anytype) !void {
-    // TODO: Custom and proper implementation
-    const ValueType = if (@hasDecl(@TypeOf(response), "error_name"))
-        struct {
+pub fn serializeResponse(
+    stream: anytype,
+    response: anytype,
+    allocator: std.mem.Allocator,
+) !void {
+    const ValueType = if (@hasDecl(@TypeOf(response), "error_name")) blk: {
+        break :blk struct {
             parameters: @TypeOf(response),
             @"error": []const u8 = @TypeOf(response).error_name,
-        }
-    else
-        struct { parameters: @TypeOf(response) };
+        };
+    } else blk: {
+        break :blk struct {
+            parameters: @TypeOf(response),
+        };
+    };
 
-    try std.json.stringify(
-        ValueType{ .parameters = response },
-        .{ .emit_null_optional_fields = false },
+    // TODO: Have a non-allocating implementation
+    try writeJson(
         stream,
+        try jsonize(
+            ValueType{
+                .parameters = response,
+            },
+            allocator,
+        ),
     );
 }
 
@@ -206,6 +288,7 @@ fn handleMethod(
                     return serializeResponse(
                         response_stream,
                         orgVarlinkService.InvalidParameter{ .parameter = invalid_parameter.? },
+                        allocator,
                     );
                 },
                 else => return err,
@@ -219,6 +302,7 @@ fn handleMethod(
                     interface_context,
                     input,
                     response_stream,
+                    allocator,
                     options,
                     extra_data,
                 });
@@ -226,6 +310,7 @@ fn handleMethod(
                 return serializeResponse(
                     response_stream,
                     orgVarlinkService.MethodNotImplemented{ .method = method },
+                    allocator,
                 );
             }
         }
@@ -233,6 +318,7 @@ fn handleMethod(
     try serializeResponse(
         response_stream,
         orgVarlinkService.MethodNotFound{ .method = method },
+        allocator,
     );
 }
 
@@ -320,6 +406,7 @@ pub fn handleRequest(
         return serializeResponse(
         response_stream,
         orgVarlinkService.InvalidParameter{ .parameter = qualified_method },
+        allocator,
     );
     const interface = qualified_method[0..last_dot];
     const method = qualified_method[last_dot + 1 ..];
@@ -353,6 +440,7 @@ pub fn handleRequest(
     try serializeResponse(
         response_stream,
         orgVarlinkService.InterfaceNotFound{ .interface = interface },
+        allocator,
     );
 }
 
@@ -364,6 +452,7 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
             context: *@This(),
             parameters: orgVarlinkService.GetInfo.Parameters,
             response_stream: anytype,
+            allocator: std.mem.Allocator,
             options: Options,
             extra_data: void,
         ) !void {
@@ -373,19 +462,24 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
             if (options.oneway) {
                 return;
             }
-            try serializeResponse(response_stream, orgVarlinkService.GetInfo.ReturnType{
-                .vendor = Context.vendor,
-                .product = Context.product,
-                .version = Context.version,
-                .url = Context.url,
-                .interfaces = .{"org.varlink.service"} ++ std.meta.fieldNames(Context),
-            });
+            try serializeResponse(
+                response_stream,
+                orgVarlinkService.GetInfo.ReturnType{
+                    .vendor = Context.vendor,
+                    .product = Context.product,
+                    .version = Context.version,
+                    .url = Context.url,
+                    .interfaces = .{"org.varlink.service"} ++ std.meta.fieldNames(Context),
+                },
+                allocator,
+            );
         }
 
         fn handleGetInterfaceDescription(
             context: *@This(),
             parameters: orgVarlinkService.GetInterfaceDescription.Parameters,
             response_stream: anytype,
+            allocator: std.mem.Allocator,
             options: Options,
             extra_data: void,
         ) !void {
@@ -401,6 +495,7 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
                         orgVarlinkService.GetInterfaceDescription.ReturnType{
                             .description = field.type.interface.description,
                         },
+                        allocator,
                     );
                     return;
                 }
@@ -411,12 +506,14 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
                     orgVarlinkService.GetInterfaceDescription.ReturnType{
                         .description = orgVarlinkService.description,
                     },
+                    allocator,
                 );
                 return;
             }
             try serializeResponse(
                 response_stream,
                 orgVarlinkService.InterfaceNotFound{ .interface = parameters.interface },
+                allocator,
             );
         }
     };
