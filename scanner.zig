@@ -76,8 +76,11 @@ fn writeStructFields(
     var current_tokens = tokens[1..];
     while (current_tokens[0] != .struct_end) {
         const name = current_tokens[0].name;
+        try stream.writeAll("@\"");
+        // Varlink names aren't allowed to contain quotes, so this should be
+        // fine.
         try stream.writeAll(name);
-        try stream.writeAll(": ");
+        try stream.writeAll("\": ");
         current_tokens = try writeType(stream, current_tokens[1..]);
         try stream.writeAll(",\n");
     }
