@@ -8,7 +8,6 @@ const std = @import("std");
 const orgVarlinkService = @import("orgVarlinkService");
 
 pub const Options = packed struct {
-    // TODO: These are nullable in the spec, but what does a null value mean?
     oneway: bool = false,
     more: bool = false,
     upgrade: bool = false,
@@ -221,10 +220,26 @@ fn parseMethod(map: std.json.ObjectMap) error{InvalidMessage}![]const u8 {
     return error.InvalidMessage;
 }
 
+fn readOptionValue(json: std.json.Value) error{InvalidMessage}!bool {
+    switch (json) {
+        .bool => |b| return b,
+        .null => return false,
+        else => return error.InvalidMessage,
+    }
+}
+
 fn parseOptions(map: std.json.ObjectMap) error{InvalidMessage}!Options {
-    // TODO
-    _ = map;
-    return .{};
+    var options: Options = .{};
+    if (map.get("oneway")) |oneway_value| {
+        options.oneway = try readOptionValue(oneway_value);
+    }
+    if (map.get("more")) |more_value| {
+        options.more = try readOptionValue(more_value);
+    }
+    if (map.get("upgrade")) |upgrade_value| {
+        options.upgrade = try readOptionValue(upgrade_value);
+    }
+    return options;
 }
 
 fn parseParameters(map: std.json.ObjectMap) error{InvalidMessage}!std.json.ObjectMap {
