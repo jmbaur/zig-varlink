@@ -229,7 +229,9 @@ fn writeJson(stream: anytype, json: std.json.Value) !void {
 }
 
 /// Serialize a Varlink response or error to the given writer. A trailing zero
-/// byte is not written to allow usage with transports not using one.
+/// byte is not written to allow usage with transports not using one. This
+/// method does not free its allocated memory, so it's recommended to use it
+/// with an arena allocator
 pub fn serializeResponse(
     stream: anytype,
     response: anytype,
@@ -260,7 +262,8 @@ pub fn serializeResponse(
 
 /// Serialize a Varlink response to the given writer with the "continues" flag
 /// set. A trailing zero byte is not written to allow usage with transports not
-/// using one.
+/// using one. This method does not free its allocated memory, so it's
+/// recommended to use it with an arena allocator
 pub fn serializeContinueResponse(
     stream: anytype,
     response: anytype,
