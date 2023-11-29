@@ -22,9 +22,6 @@ fn parseToStruct(
     json: std.json.Value,
     invalid_parameter: *?[]const u8,
 ) JsonParsingError!T {
-    if (T == std.json.Value) {
-        return json;
-    }
     const struc = switch (@typeInfo(T)) {
         .Struct => |struc| struc,
         else => @compileError("Expected a struct, got: " ++ @typeName(T)),
@@ -59,6 +56,9 @@ fn parseToType(
     allocator: std.mem.Allocator,
     json: std.json.Value,
 ) JsonParsingError!T {
+    if (T == std.json.Value) {
+        return json;
+    }
     switch (@typeInfo(T)) {
         .Bool => {
             switch (json) {
