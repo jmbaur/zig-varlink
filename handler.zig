@@ -258,6 +258,26 @@ pub fn serializeResponse(
     );
 }
 
+/// Serialize a Varlink response to the given writer with the "continues" flag
+/// set. A trailing zero byte is not written to allow usage with transports not
+/// using one.
+pub fn serializeContinueResponse(
+    stream: anytype,
+    response: anytype,
+    allocator: std.mem.Allocator,
+) !void {
+    try writeJson(
+        stream,
+        try jsonize(
+            .{
+                .parameters = response,
+                .continues = true,
+            },
+            allocator,
+        ),
+    );
+}
+
 fn handleMethod(
     method: []const u8,
     parameters: std.json.Value,
