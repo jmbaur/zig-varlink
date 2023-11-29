@@ -10,45 +10,52 @@ fn writeType(
     stream: anytype,
     tokens: []const Token,
 ) @TypeOf(stream).Error![]const Token {
-    for (tokens, 0..) |token, i| {
+    var opened_dicts: usize = 0;
+    const result = for (tokens, 0..) |token, i| {
         switch (token) {
             .maybe => try stream.writeByte('?'),
             .array => try stream.writeAll("[]const "),
-            .dict => @panic("TODO: Implement dicts"),
+            .dict => {
+                opened_dicts += 1;
+                try stream.writeAll("std.StringHashMapUnmanaged(");
+            },
             .enum_begin => {
-                return writeEnumBody(stream, tokens[i..]);
+                break writeEnumBody(stream, tokens[i..]);
             },
             .struct_begin => {
-                return writeStruct(stream, tokens[i..]);
+                break writeStruct(stream, tokens[i..]);
             },
             .bool => {
                 try stream.writeAll("bool");
-                return tokens[i + 1 ..];
+                break tokens[i + 1 ..];
             },
             .int => {
                 try stream.writeAll("i64");
-                return tokens[i + 1 ..];
+                break tokens[i + 1 ..];
             },
             .float => {
                 try stream.writeAll("f64");
-                return tokens[i + 1 ..];
+                break tokens[i + 1 ..];
             },
             .string => {
                 try stream.writeAll("[]const u8");
-                return tokens[i + 1 ..];
+                break tokens[i + 1 ..];
             },
             .object => {
                 try stream.writeAll("std.json.Value");
-                return tokens[i + 1 ..];
+                break tokens[i + 1 ..];
             },
             .name => |name| {
                 try stream.writeAll(name);
-                return tokens[i + 1 ..];
+                break tokens[i + 1 ..];
             },
             else => unreachable,
         }
+    } else unreachable;
+    for (0..opened_dicts) |_| {
+        try stream.writeByte(')');
     }
-    unreachable;
+    return result;
 }
 
 fn writeEnumBody(
