@@ -776,7 +776,7 @@ const Arguments = struct {
             }
             const port = std.fmt.parseInt(u16, address[ipv6_end + 2 ..], 10) catch
                 return error.InvalidPort;
-            return std.net.Address.resolveIp6(address[1..ipv6_end], port) catch error.InvalidAddress;
+            return std.net.Address.parseIp6(address[1..ipv6_end], port) catch error.InvalidAddress;
         } else {
             const colon_position = std.mem.indexOfScalar(u8, address, ':') orelse
                 return error.MissingPort;
