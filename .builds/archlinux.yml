@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2023 Väinö Mäkelä
+
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+image: archlinux
+packages:
+  - zig
+  - reuse
+sources:
+  - https://git.sr.ht/~mainiomano/zig-varlink
+tasks:
+  - build: |
+      cd zig-varlink
+      zig build
+  - test: |
+      cd zig-varlink
+      zig build test
+  - fmt: |
+      cd zig-varlink
+      zig fmt --check tokenizer.zig
+      zig fmt --check scanner.zig
+      zig fmt --check handler.zig
+      zig fmt --check build.zig
+      zig fmt --check test/
+  - licenses: |
+      cd zig-varlink
+      reuse lint
