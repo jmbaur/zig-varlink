@@ -4,5 +4,5 @@
 
 test {
     _ = @import("handler-test.zig");
-    _ = @import("certification.zig");
+    _ = @import("certification/certification.zig");
 }

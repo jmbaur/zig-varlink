@@ -52,20 +52,28 @@ pub fn build(b: *Build) void {
         },
     });
 
+    const orgVarlinkCertification = scanFile(
+        b,
+        scanner,
+        "test/certification/org.varlink.certification.varlink",
+        "orgVarlinkCertification.zig",
+    );
+
     const tokenizer_tests = b.addTest(.{
         .name = "tokenizer_tests",
         .root_source_file = .{ .path = "tokenizer.zig" },
         .target = target,
         .optimize = optimize,
     });
-    const handler_tests = b.addTest(.{
-        .name = "handler_tests",
+    const router_tests = b.addTest(.{
+        .name = "router_tests",
         .root_source_file = .{ .path = "test/tests.zig" },
         .target = target,
         .optimize = optimize,
     });
-    handler_tests.addModule("varlink-handler", handler);
-    handler_tests.addModule(
+    router_tests.addModule("varlink-handler", handler);
+    router_tests.addModule("varlink-client", client);
+    router_tests.addModule(
         "zigVarlinkTest",
         scanFile(
             b,
@@ -74,31 +82,25 @@ pub fn build(b: *Build) void {
             "zigVarlinkTest.zig",
         ),
     );
+    router_tests.addModule("orgVarlinkCertification", orgVarlinkCertification);
 
     const certification = b.addExecutable(.{
         .name = "zig-varlink-certification",
-        .root_source_file = .{ .path = "test/certification.zig" },
+        .root_source_file = .{ .path = "test/certification/certification.zig" },
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
     certification.addModule("varlink-handler", handler);
-    certification.addModule(
-        "orgVarlinkCertification",
-        scanFile(
-            b,
-            scanner,
-            "test/org.varlink.certification.varlink",
-            "orgVarlinkCertification.zig",
-        ),
-    );
+    certification.addModule("varlink-client", client);
+    certification.addModule("orgVarlinkCertification", orgVarlinkCertification);
     b.installArtifact(certification);
 
     const test_step = b.step("test", "Run tests");
     const run_tokenizer_tests = b.addRunArtifact(tokenizer_tests);
-    const run_handler_tests = b.addRunArtifact(handler_tests);
+    const run_router_tests = b.addRunArtifact(router_tests);
     test_step.dependOn(&run_tokenizer_tests.step);
-    test_step.dependOn(&run_handler_tests.step);
+    test_step.dependOn(&run_router_tests.step);
 }
 
 pub fn scanFile(
