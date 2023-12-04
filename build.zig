@@ -17,6 +17,11 @@ pub fn build(b: *Build) void {
     });
     b.installArtifact(scanner);
 
+    const router = b.createModule(.{
+        .source_file = .{ .path = "router.zig" },
+        .dependencies = &.{},
+    });
+
     const orgVarlinkService = scanFile(
         b,
         scanner,
@@ -29,6 +34,10 @@ pub fn build(b: *Build) void {
             .{
                 .name = "orgVarlinkService",
                 .module = orgVarlinkService,
+            },
+            .{
+                .name = "router",
+                .module = router,
             },
         },
     });

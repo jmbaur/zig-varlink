@@ -19,6 +19,8 @@ tasks:
       cd zig-varlink
       zig fmt --check tokenizer.zig
       zig fmt --check scanner.zig
+      zig fmt --check json.zig
+      zig fmt --check router.zig
       zig fmt --check handler.zig
       zig fmt --check build.zig
       zig fmt --check test/
