@@ -22,6 +22,7 @@ tasks:
       zig fmt --check json.zig
       zig fmt --check router.zig
       zig fmt --check handler.zig
+      zig fmt --check client.zig
       zig fmt --check build.zig
       zig fmt --check test/
   - licenses: |

@@ -42,6 +42,16 @@ pub fn build(b: *Build) void {
         },
     });
 
+    const client = b.addModule("varlink-client", .{
+        .source_file = .{ .path = "client.zig" },
+        .dependencies = &[_]std.Build.ModuleDependency{
+            .{
+                .name = "router",
+                .module = router,
+            },
+        },
+    });
+
     const tokenizer_tests = b.addTest(.{
         .name = "tokenizer_tests",
         .root_source_file = .{ .path = "tokenizer.zig" },
