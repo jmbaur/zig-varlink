@@ -5,9 +5,11 @@
 image: archlinux
 packages:
   - zig
+  - python
   - reuse
 sources:
   - https://git.sr.ht/~mainiomano/zig-varlink
+  - https://github.com/varlink/python.git
 tasks:
   - build: |
       cd zig-varlink
@@ -15,6 +17,20 @@ tasks:
   - test: |
       cd zig-varlink
       zig build test
+  - test_certification_server: |
+      cd zig-varlink
+      ./zig-out/bin/zig-varlink-certification &
+      cd ../python
+      PYTHONPATH=. python varlink/tests/test_certification.py --client --varlink=tcp:127.0.0.1:23456
+      wait %%
+  - test_certification_client: |
+      cd python
+      PYTHONPATH=. python varlink/tests/test_certification.py --varlink=tcp:127.0.0.1:23456 &
+      cd ../zig-varlink
+      # Wait for the server to start up
+      sleep 0.5
+      ./zig-out/bin/zig-varlink-certification --client
+      kill %%
   - fmt: |
       cd zig-varlink
       zig fmt --check tokenizer.zig
