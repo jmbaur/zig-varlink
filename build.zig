@@ -11,14 +11,14 @@ pub fn build(b: *Build) void {
 
     const scanner = b.addExecutable(.{
         .name = "zig-varlink-scanner",
-        .root_source_file = .{ .path = "scanner.zig" },
+        .root_source_file = .{ .path = "src/scanner.zig" },
         .target = target,
         .optimize = optimize,
     });
     b.installArtifact(scanner);
 
     const router = b.createModule(.{
-        .source_file = .{ .path = "router.zig" },
+        .source_file = .{ .path = "src/router.zig" },
         .dependencies = &.{},
     });
 
@@ -29,7 +29,7 @@ pub fn build(b: *Build) void {
         "orgVarlinkService.zig",
     );
     const handler = b.addModule("varlink-handler", .{
-        .source_file = .{ .path = "handler.zig" },
+        .source_file = .{ .path = "src/handler.zig" },
         .dependencies = &[_]std.Build.ModuleDependency{
             .{
                 .name = "orgVarlinkService",
@@ -43,7 +43,7 @@ pub fn build(b: *Build) void {
     });
 
     const client = b.addModule("varlink-client", .{
-        .source_file = .{ .path = "client.zig" },
+        .source_file = .{ .path = "src/client.zig" },
         .dependencies = &[_]std.Build.ModuleDependency{
             .{
                 .name = "router",
@@ -61,7 +61,7 @@ pub fn build(b: *Build) void {
 
     const tokenizer_tests = b.addTest(.{
         .name = "tokenizer_tests",
-        .root_source_file = .{ .path = "tokenizer.zig" },
+        .root_source_file = .{ .path = "src/tokenizer.zig" },
         .target = target,
         .optimize = optimize,
     });
