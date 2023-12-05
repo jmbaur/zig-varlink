@@ -28,8 +28,8 @@ pub fn build(b: *Build) void {
         "org.varlink.service.varlink",
         "orgVarlinkService.zig",
     );
-    const handler = b.addModule("varlink-handler", .{
-        .source_file = .{ .path = "src/handler.zig" },
+    const server = b.addModule("varlink-server", .{
+        .source_file = .{ .path = "src/server.zig" },
         .dependencies = &[_]std.Build.ModuleDependency{
             .{
                 .name = "orgVarlinkService",
@@ -71,7 +71,7 @@ pub fn build(b: *Build) void {
         .target = target,
         .optimize = optimize,
     });
-    router_tests.addModule("varlink-handler", handler);
+    router_tests.addModule("varlink-server", server);
     router_tests.addModule("varlink-client", client);
     router_tests.addModule(
         "zigVarlinkTest",
@@ -91,7 +91,7 @@ pub fn build(b: *Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
-    certification.addModule("varlink-handler", handler);
+    certification.addModule("varlink-server", server);
     certification.addModule("varlink-client", client);
     certification.addModule("orgVarlinkCertification", orgVarlinkCertification);
     b.installArtifact(certification);

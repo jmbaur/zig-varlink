@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! Handler for Varlink requests
+//! Implementation of a Varlink server
 
 const std = @import("std");
 const router = @import("router");

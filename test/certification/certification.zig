@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 const std = @import("std");
-const handler = @import("varlink-handler");
+const server = @import("varlink-server");
 const client = @import("varlink-client");
 const orgVarlinkCertification = @import("orgVarlinkCertification");
 const gpa = std.heap.c_allocator;
@@ -26,7 +26,7 @@ fn handleRequest(stream: std.net.Stream, reader: anytype, context: *ServerContex
     var write_buffer: [4096]u8 = undefined;
     var write_stream = std.io.fixedBufferStream(&write_buffer);
     const request = try readMessage(reader, &request_buffer);
-    try handler.handleRequest(
+    try server.handleRequest(
         request,
         write_stream.writer(),
         gpa,
@@ -273,13 +273,13 @@ fn runClient(address: std.net.Address) !void {
 }
 
 fn runServer(stderr_buf: anytype, address: std.net.Address) !void {
-    var server = std.net.StreamServer.init(.{ .reuse_address = true });
-    defer server.deinit();
-    try server.listen(address);
-    try stderr_buf.writer().print("Listening to {}\n", .{server.listen_address});
+    var socket_server = std.net.StreamServer.init(.{ .reuse_address = true });
+    defer socket_server.deinit();
+    try socket_server.listen(address);
+    try stderr_buf.writer().print("Listening to {}\n", .{socket_server.listen_address});
     try stderr_buf.flush();
 
-    const connection = try server.accept();
+    const connection = try socket_server.accept();
     defer connection.stream.close();
     var read_buffer = std.io.bufferedReader(connection.stream.reader());
     var raw_client_id: [16]u8 = undefined;
@@ -356,7 +356,7 @@ test "Client and server can communicate with each other" {
         while (request_stream.count > 0) {
             const request = try readMessage(request_stream.reader(), &request_buffer);
             const old_count = response_stream.count;
-            try handler.handleRequest(
+            try server.handleRequest(
                 request,
                 response_stream.writer(),
                 std.testing.allocator,

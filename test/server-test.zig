@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 const std = @import("std");
-const handler = @import("varlink-handler");
+const server = @import("varlink-server");
 const zigVarlinkTest = @import("zigVarlinkTest");
 
 const Context = struct {
@@ -19,14 +19,14 @@ const Context = struct {
             parameters: zigVarlinkTest.TestCall.Parameters,
             response_stream: anytype,
             allocator: std.mem.Allocator,
-            options: handler.Options,
+            options: server.Options,
             extra_info: u32,
         ) !void {
             context.counter += 1;
             if (options.oneway) {
                 return;
             }
-            try handler.serializeResponse(
+            try server.serializeResponse(
                 response_stream,
                 zigVarlinkTest.TestCall.ReturnType{
                     .out = parameters.in + context.counter + extra_info,
@@ -48,7 +48,7 @@ test "Varlink handler works correctly" {
             \\  "parameters": {"interface": "org.varlink.service"}
             \\}
         ;
-        try handler.handleRequest(request, response_stream.writer(), std.testing.allocator, &context, 5);
+        try server.handleRequest(request, response_stream.writer(), std.testing.allocator, &context, 5);
         try std.testing.expectEqualStrings(
             \\{"parameters":{"vendor":"test","product":"test","version":"0.1","url":"http://example.com/","interfaces":["org.varlink.service","org.zig-varlink.test"]}}
         , response_stream.getWritten());
@@ -61,7 +61,7 @@ test "Varlink handler works correctly" {
             \\  "parameters": {"in": 2}
             \\}
         ;
-        try handler.handleRequest(request, response_stream.writer(), std.testing.allocator, &context, 5);
+        try server.handleRequest(request, response_stream.writer(), std.testing.allocator, &context, 5);
         try std.testing.expectEqualStrings(
             \\{"parameters":{"out":8}}
         , response_stream.getWritten());
