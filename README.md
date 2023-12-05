@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
 
 # zig-varlink
 
+[![builds.sr.ht status](https://builds.sr.ht/~mainiomano/zig-varlink/commits/main.svg)](https://builds.sr.ht/~mainiomano/zig-varlink/commits/main?)
+
 zig-varlink is a WIP [Varlink] library for Zig. Design goals:
 
 - Let the user manage their own sockets as much as possible, or don't require
