@@ -17,37 +17,18 @@ pub fn build(b: *Build) void {
     });
     b.installArtifact(scanner);
 
-    const router = b.createModule(.{
-        .source_file = .{ .path = "src/router.zig" },
-        .dependencies = &.{},
-    });
-
     const orgVarlinkService = scanFile(
         b,
         scanner,
         "org.varlink.service.varlink",
         "orgVarlinkService.zig",
     );
-    const server = b.addModule("varlink-server", .{
-        .source_file = .{ .path = "src/server.zig" },
+    const varlink = b.addModule("varlink", .{
+        .source_file = .{ .path = "src/varlink.zig" },
         .dependencies = &[_]std.Build.ModuleDependency{
             .{
                 .name = "orgVarlinkService",
                 .module = orgVarlinkService,
-            },
-            .{
-                .name = "router",
-                .module = router,
-            },
-        },
-    });
-
-    const client = b.addModule("varlink-client", .{
-        .source_file = .{ .path = "src/client.zig" },
-        .dependencies = &[_]std.Build.ModuleDependency{
-            .{
-                .name = "router",
-                .module = router,
             },
         },
     });
@@ -71,8 +52,7 @@ pub fn build(b: *Build) void {
         .target = target,
         .optimize = optimize,
     });
-    router_tests.addModule("varlink-server", server);
-    router_tests.addModule("varlink-client", client);
+    router_tests.addModule("varlink", varlink);
     router_tests.addModule(
         "zigVarlinkTest",
         scanFile(
@@ -91,8 +71,7 @@ pub fn build(b: *Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
-    certification.addModule("varlink-server", server);
-    certification.addModule("varlink-client", client);
+    certification.addModule("varlink", varlink);
     certification.addModule("orgVarlinkCertification", orgVarlinkCertification);
     b.installArtifact(certification);
 

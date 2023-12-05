@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 const std = @import("std");
-const server = @import("varlink-server");
+const varlink = @import("varlink");
+const server = varlink.server;
+const Options = varlink.Options;
 const zigVarlinkTest = @import("zigVarlinkTest");
 
 const Context = struct {
@@ -19,7 +21,7 @@ const Context = struct {
             parameters: zigVarlinkTest.TestCall.Parameters,
             response_stream: anytype,
             allocator: std.mem.Allocator,
-            options: server.Options,
+            options: Options,
             extra_info: u32,
         ) !void {
             context.counter += 1;

@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 const std = @import("std");
-const server = @import("varlink-server");
+const varlink = @import("varlink");
+const server = varlink.server;
+const Options = varlink.Options;
+const json = varlink.json;
 const orgVarlinkCertification = @import("orgVarlinkCertification");
 
 pub const vendor = "zig-varlink";
@@ -25,8 +28,8 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         response_stream: anytype,
         allocator: std.mem.Allocator,
     ) !bool {
-        const wants = try server.varlinkJson.jsonize(expected, allocator);
-        const got = try server.varlinkJson.jsonize(actual, allocator);
+        const wants = try json.jsonize(expected, allocator);
+        const got = try json.jsonize(actual, allocator);
         // This is a really roundabout way of doing things, but it might be
         // the easiest way to compare arbitrary zig-varlink types. Hashmap
         // ordering is not guaranteed, but it might work just well enough.
@@ -77,20 +80,20 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     }
 
     fn checkOptions(
-        expected: server.Options,
-        actual: server.Options,
+        expected: Options,
+        actual: Options,
         response_stream: anytype,
         allocator: std.mem.Allocator,
     ) !bool {
         if (!std.meta.eql(expected, actual)) {
-            const OptionReport = struct { options: server.Options };
+            const OptionReport = struct { options: Options };
             const wants: OptionReport = .{ .options = expected };
             const got: OptionReport = .{ .options = actual };
             try server.serializeResponse(
                 response_stream,
                 orgVarlinkCertification.CertificationError{
-                    .wants = try server.varlinkJson.jsonize(wants, allocator),
-                    .got = try server.varlinkJson.jsonize(got, allocator),
+                    .wants = try json.jsonize(wants, allocator),
+                    .got = try json.jsonize(got, allocator),
                 },
                 allocator,
             );
@@ -105,7 +108,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 orgVarlinkCertification,
                 @tagName(method),
             ).Parameters,
-            options: server.Options,
+            options: Options,
         };
     }
 
@@ -149,7 +152,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Start.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         _ = parameters;
@@ -169,7 +172,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test01.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
@@ -203,7 +206,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test02.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
@@ -237,7 +240,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test03.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
@@ -271,7 +274,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test04.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
@@ -305,7 +308,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test05.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
@@ -344,7 +347,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test06.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
@@ -391,7 +394,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test07.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
@@ -438,7 +441,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test08.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         var expected: std.StringHashMapUnmanaged([]const u8) = .{};
@@ -483,7 +486,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     fn generateMytype(
         allocator: std.mem.Allocator,
     ) !orgVarlinkCertification.MyType {
-        const object = try server.varlinkJson.jsonize(
+        const object = try json.jsonize(
             .{
                 .method = "org.varlink.certification.Test09",
                 .parameters = .{
@@ -554,7 +557,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test09.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         const Set = std.meta.fieldInfo(orgVarlinkCertification.Test09.Parameters, .set).type;
@@ -599,7 +602,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test10.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
@@ -658,7 +661,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.Test11.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         var expected_replies: [10][]const u8 = undefined;
@@ -695,7 +698,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         parameters: orgVarlinkCertification.End.Parameters,
         response_stream: anytype,
         allocator: std.mem.Allocator,
-        options: server.Options,
+        options: Options,
         client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(

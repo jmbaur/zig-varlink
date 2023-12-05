@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 const std = @import("std");
-const router = @import("router");
-pub const varlinkJson = router.varlinkJson;
-pub const Options = router.Options;
+const router = @import("router.zig");
+const varlinkJson = @import("json.zig");
+const Options = router.Options;
 
 /// Return the number of requests of the given context.
 fn countRequests(comptime Context: type) comptime_int {

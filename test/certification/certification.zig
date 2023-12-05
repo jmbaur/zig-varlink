@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 const std = @import("std");
-const server = @import("varlink-server");
-const client = @import("varlink-client");
+const varlink = @import("varlink");
+const server = varlink.server;
+const Client = varlink.Client;
 const orgVarlinkCertification = @import("orgVarlinkCertification");
 const gpa = std.heap.c_allocator;
 
@@ -261,7 +262,7 @@ fn runClient(address: std.net.Address) !void {
         },
     };
     defer context.@"org.varlink.certification".deinit();
-    var state = client.Client(ClientContext).init(&context, gpa);
+    var state = Client(ClientContext).init(&context, gpa);
     defer state.deinit();
     try callStart(&state, write_buffer.writer(), allocator);
     try write_buffer.flush();
@@ -345,7 +346,7 @@ test "Client and server can communicate with each other" {
         },
     };
     defer client_context.@"org.varlink.certification".deinit();
-    var client_state = client.Client(ClientContext).init(&client_context, std.testing.allocator);
+    var client_state = Client(ClientContext).init(&client_context, std.testing.allocator);
     defer client_state.deinit();
     try callStart(&client_state, request_stream.writer(), allocator);
 

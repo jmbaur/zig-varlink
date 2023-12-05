@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 const std = @import("std");
-pub const varlinkJson = @import("json.zig");
+const varlinkJson = @import("json.zig");
 
 pub const Options = packed struct {
     oneway: bool = false,

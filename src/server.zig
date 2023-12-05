@@ -5,9 +5,9 @@
 //! Implementation of a Varlink server
 
 const std = @import("std");
-const router = @import("router");
-pub const varlinkJson = router.varlinkJson;
-pub const Options = router.Options;
+const router = @import("router.zig");
+const varlinkJson = @import("json.zig");
+const Options = router.Options;
 const orgVarlinkService = @import("orgVarlinkService");
 
 /// Serialize a Varlink response or error to the given writer. A trailing zero
