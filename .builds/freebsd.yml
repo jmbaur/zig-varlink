@@ -27,7 +27,7 @@ tasks:
       wait %%
   - test_certification_client: |
       cd python
-      PYTHONPATH=. python varlink/tests/test_certification.py --varlink=tcp:127.0.0.1:23456 &
+      PYTHONPATH=. python3 varlink/tests/test_certification.py --varlink=tcp:127.0.0.1:23456 &
       cd ../zig-varlink
       # Wait for the server to start up
       sleep 0.5
