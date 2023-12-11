@@ -18,9 +18,9 @@ zig-varlink is a WIP [Varlink] library for Zig. Design goals:
 
 ## License
 
-zig-varlink follows version 3.0 of the [REUSE Specification]. The library as a
-whole is licensed under Apache-2.0 or MIT, at your option, but please see the
-individual files for their copyright information.
+zig-varlink follows version 3.0 of the [REUSE Specification]. The library is
+licensed under Apache-2.0 or MIT, at your option, but please see the individual
+files for their copyright information.
 
 [Varlink]: https://varlink.org/
 [REUSE Specification]: https://reuse.software/spec/
