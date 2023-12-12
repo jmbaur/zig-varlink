@@ -4,6 +4,7 @@
 
 const std = @import("std");
 const varlinkJson = @import("json.zig");
+const server = @import("server.zig");
 
 pub const Options = packed struct {
     oneway: bool = false,
@@ -28,7 +29,6 @@ pub fn route(
     comptime mode: Mode,
     method: []const u8,
     parameters: std.json.Value,
-    response_stream: anytype,
     allocator: std.mem.Allocator,
     options: if (mode == .server) Options else void,
     interface_context: anytype,
@@ -70,13 +70,20 @@ pub fn route(
                     request_function,
                 );
                 if (comptime mode == .server) {
+                    const connection = extra_data;
+                    const Connection = @TypeOf(connection.*);
+                    const request_context: server.RequestContext(
+                        Connection,
+                        Request,
+                    ) = .{
+                        .connection = connection,
+                        .allocator = allocator,
+                    };
                     return @call(.auto, function, .{
                         interface_context,
                         input,
-                        response_stream,
-                        allocator,
+                        request_context,
                         options,
-                        extra_data,
                     });
                 } else {
                     return @call(.auto, function, .{
@@ -115,7 +122,6 @@ pub fn routeInterface(
     interface: []const u8,
     name: []const u8,
     parameters: std.json.Value,
-    response_stream: anytype,
     allocator: std.mem.Allocator,
     options: if (mode == .server) Options else void,
     context: anytype,
@@ -128,7 +134,6 @@ pub fn routeInterface(
                 mode,
                 name,
                 parameters,
-                response_stream,
                 allocator,
                 options,
                 &@field(context, interface_context.name),

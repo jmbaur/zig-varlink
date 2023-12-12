@@ -19,22 +19,18 @@ const Context = struct {
         pub fn handleTestCall(
             context: *@This(),
             parameters: zigVarlinkTest.TestCall.Parameters,
-            response_stream: anytype,
-            allocator: std.mem.Allocator,
+            request_context: anytype,
             options: Options,
-            extra_info: u32,
         ) !void {
             context.counter += 1;
             if (options.oneway) {
                 return;
             }
-            try server.serializeResponse(
-                response_stream,
-                zigVarlinkTest.TestCall.ReturnType{
-                    .out = parameters.in + context.counter + extra_info,
-                },
-                allocator,
-            );
+            try request_context.serializeResponse(.{
+                .out = parameters.in +
+                    context.counter +
+                    request_context.connection.data,
+            });
         }
     } = .{},
 };
@@ -44,26 +40,28 @@ test "Varlink handler works correctly" {
     var buffer: [4096]u8 = undefined;
     {
         var response_stream = std.io.fixedBufferStream(&buffer);
+        var connection = server.createConnection(Context, response_stream.writer(), u32, 5);
         const request =
             \\{
             \\  "method": "org.varlink.service.GetInfo",
             \\  "parameters": {"interface": "org.varlink.service"}
             \\}
         ;
-        try server.handleRequest(request, response_stream.writer(), std.testing.allocator, &context, 5);
+        try connection.handleRequest(request, std.testing.allocator, &context);
         try std.testing.expectEqualStrings(
             \\{"parameters":{"vendor":"test","product":"test","version":"0.1","url":"http://example.com/","interfaces":["org.varlink.service","org.zig-varlink.test"]}}
         , response_stream.getWritten());
     }
     {
         var response_stream = std.io.fixedBufferStream(&buffer);
+        var connection = server.createConnection(Context, response_stream.writer(), u32, 5);
         const request =
             \\{
             \\  "method": "org.zig-varlink.test.TestCall",
             \\  "parameters": {"in": 2}
             \\}
         ;
-        try server.handleRequest(request, response_stream.writer(), std.testing.allocator, &context, 5);
+        try connection.handleRequest(request, std.testing.allocator, &context);
         try std.testing.expectEqualStrings(
             \\{"parameters":{"out":8}}
         , response_stream.getWritten());

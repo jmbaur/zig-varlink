@@ -25,7 +25,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     fn checkParameters(
         expected: anytype,
         actual: @TypeOf(expected),
-        response_stream: anytype,
+        connection: anytype,
         allocator: std.mem.Allocator,
     ) !bool {
         const wants = try json.jsonize(expected, allocator);
@@ -36,8 +36,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         const expected_json = try std.json.stringifyAlloc(allocator, wants, .{});
         const actual_json = try std.json.stringifyAlloc(allocator, got, .{});
         if (!std.mem.eql(u8, expected_json, actual_json)) {
-            try server.serializeResponse(
-                response_stream,
+            try connection.serializeError(
                 orgVarlinkCertification.CertificationError{
                     .wants = wants,
                     .got = got,
@@ -52,7 +51,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     fn checkMethod(
         context: @This(),
         method: Method,
-        response_stream: anytype,
+        connection: anytype,
         allocator: std.mem.Allocator,
     ) !bool {
         if (context.next_method != method) {
@@ -66,8 +65,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 "Call to method org.varlink.certification.{s}",
                 .{@tagName(method)},
             );
-            try server.serializeResponse(
-                response_stream,
+            try connection.serializeError(
                 orgVarlinkCertification.CertificationError{
                     .wants = .{ .string = wants },
                     .got = .{ .string = got },
@@ -82,15 +80,14 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     fn checkOptions(
         expected: Options,
         actual: Options,
-        response_stream: anytype,
+        connection: anytype,
         allocator: std.mem.Allocator,
     ) !bool {
         if (!std.meta.eql(expected, actual)) {
             const OptionReport = struct { options: Options };
             const wants: OptionReport = .{ .options = expected };
             const got: OptionReport = .{ .options = actual };
-            try server.serializeResponse(
-                response_stream,
+            try connection.serializeError(
                 orgVarlinkCertification.CertificationError{
                     .wants = try json.jsonize(wants, allocator),
                     .got = try json.jsonize(got, allocator),
@@ -117,13 +114,13 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         comptime method: Method,
         expected: RequestInfo(method),
         actual: RequestInfo(method),
-        response_stream: anytype,
+        connection: anytype,
         allocator: std.mem.Allocator,
     ) !bool {
         if (!try checkMethod(
             context,
             method,
-            response_stream,
+            connection,
             allocator,
         )) {
             return false;
@@ -131,7 +128,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (!try checkParameters(
             expected.parameters,
             actual.parameters,
-            response_stream,
+            connection,
             allocator,
         )) {
             return false;
@@ -139,7 +136,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (!try checkOptions(
             expected.options,
             actual.options,
-            response_stream,
+            connection,
             allocator,
         )) {
             return false;
@@ -150,43 +147,37 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     pub fn handleStart(
         context: *@This(),
         parameters: orgVarlinkCertification.Start.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         _ = parameters;
         context.next_method = .Test01;
         if (options.oneway) {
             return;
         }
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Start.ReturnType{ .client_id = client_id },
-            allocator,
+        try request_context.serializeResponse(
+            .{ .client_id = request_context.connection.data },
         );
     }
 
     pub fn handleTest01(
         context: *@This(),
         parameters: orgVarlinkCertification.Test01.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
             .Test01,
             .{
-                .parameters = .{ .client_id = client_id },
+                .parameters = .{ .client_id = request_context.connection.data },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -194,33 +185,27 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (options.oneway) {
             return;
         }
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Test01.ReturnType{ .bool = true },
-            allocator,
-        );
+        try request_context.serializeResponse(.{ .bool = true });
     }
 
     pub fn handleTest02(
         context: *@This(),
         parameters: orgVarlinkCertification.Test02.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
             .Test02,
             .{
-                .parameters = .{ .client_id = client_id, .bool = true },
+                .parameters = .{ .client_id = request_context.connection.data, .bool = true },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -228,33 +213,27 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (options.oneway) {
             return;
         }
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Test02.ReturnType{ .int = 1 },
-            allocator,
-        );
+        try request_context.serializeResponse(.{ .int = 1 });
     }
 
     pub fn handleTest03(
         context: *@This(),
         parameters: orgVarlinkCertification.Test03.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
             .Test03,
             .{
-                .parameters = .{ .client_id = client_id, .int = 1 },
+                .parameters = .{ .client_id = request_context.connection.data, .int = 1 },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -262,33 +241,27 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (options.oneway) {
             return;
         }
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Test03.ReturnType{ .float = 1.0 },
-            allocator,
-        );
+        try request_context.serializeResponse(.{ .float = 1.0 });
     }
 
     pub fn handleTest04(
         context: *@This(),
         parameters: orgVarlinkCertification.Test04.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
             .Test04,
             .{
-                .parameters = .{ .client_id = client_id, .float = 1.0 },
+                .parameters = .{ .client_id = request_context.connection.data, .float = 1.0 },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -296,33 +269,27 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (options.oneway) {
             return;
         }
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Test04.ReturnType{ .string = "ping" },
-            allocator,
-        );
+        try request_context.serializeResponse(.{ .string = "ping" });
     }
 
     pub fn handleTest05(
         context: *@This(),
         parameters: orgVarlinkCertification.Test05.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
             .Test05,
             .{
-                .parameters = .{ .client_id = client_id, .string = "ping" },
+                .parameters = .{ .client_id = request_context.connection.data, .string = "ping" },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -330,31 +297,27 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (options.oneway) {
             return;
         }
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Test05.ReturnType{
+        try request_context.serializeResponse(
+            .{
                 .bool = false,
                 .int = 2,
                 .float = std.math.pi,
                 .string = "a lot of string",
             },
-            allocator,
         );
     }
 
     pub fn handleTest06(
         context: *@This(),
         parameters: orgVarlinkCertification.Test06.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
             .Test06,
             .{
                 .parameters = .{
-                    .client_id = client_id,
+                    .client_id = request_context.connection.data,
                     .bool = false,
                     .int = 2,
                     .float = std.math.pi,
@@ -366,8 +329,8 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -375,9 +338,8 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (options.oneway) {
             return;
         }
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Test06.ReturnType{
+        try request_context.serializeResponse(
+            .{
                 .@"struct" = .{
                     .bool = false,
                     .int = 2,
@@ -385,23 +347,20 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                     .string = "a lot of string",
                 },
             },
-            allocator,
         );
     }
 
     pub fn handleTest07(
         context: *@This(),
         parameters: orgVarlinkCertification.Test07.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
             .Test07,
             .{
                 .parameters = .{
-                    .client_id = client_id,
+                    .client_id = request_context.connection.data,
                     .@"struct" = .{
                         .bool = false,
                         .int = 2,
@@ -415,8 +374,8 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -425,33 +384,25 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         var response_map: std.StringHashMapUnmanaged([]const u8) = .{};
-        try response_map.putNoClobber(allocator, "foo", "Foo");
-        try response_map.putNoClobber(allocator, "bar", "Bar");
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Test07.ReturnType{
-                .map = response_map,
-            },
-            allocator,
-        );
+        try response_map.putNoClobber(request_context.allocator, "foo", "Foo");
+        try response_map.putNoClobber(request_context.allocator, "bar", "Bar");
+        try request_context.serializeResponse(.{ .map = response_map });
     }
 
     pub fn handleTest08(
         context: *@This(),
         parameters: orgVarlinkCertification.Test08.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         var expected: std.StringHashMapUnmanaged([]const u8) = .{};
-        try expected.putNoClobber(allocator, "foo", "Foo");
-        try expected.putNoClobber(allocator, "bar", "Bar");
+        try expected.putNoClobber(request_context.allocator, "foo", "Foo");
+        try expected.putNoClobber(request_context.allocator, "bar", "Bar");
         if (!try context.checkRequest(
             .Test08,
             .{
                 .parameters = .{
-                    .client_id = client_id,
+                    .client_id = request_context.connection.data,
                     .map = expected,
                 },
                 .options = .{},
@@ -460,8 +411,8 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -471,16 +422,10 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         }
         const Set = std.meta.fieldInfo(orgVarlinkCertification.Test08.ReturnType, .set).type;
         var response_set: Set = .{};
-        try response_set.putNoClobber(allocator, "one", .{});
-        try response_set.putNoClobber(allocator, "two", .{});
-        try response_set.putNoClobber(allocator, "three", .{});
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Test08.ReturnType{
-                .set = response_set,
-            },
-            allocator,
-        );
+        try response_set.putNoClobber(request_context.allocator, "one", .{});
+        try response_set.putNoClobber(request_context.allocator, "two", .{});
+        try response_set.putNoClobber(request_context.allocator, "three", .{});
+        try request_context.serializeResponse(.{ .set = response_set });
     }
 
     fn generateMytype(
@@ -555,21 +500,19 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     pub fn handleTest09(
         context: *@This(),
         parameters: orgVarlinkCertification.Test09.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         const Set = std.meta.fieldInfo(orgVarlinkCertification.Test09.Parameters, .set).type;
         var expected: Set = .{};
-        try expected.putNoClobber(allocator, "one", .{});
-        try expected.putNoClobber(allocator, "two", .{});
-        try expected.putNoClobber(allocator, "three", .{});
+        try expected.putNoClobber(request_context.allocator, "one", .{});
+        try expected.putNoClobber(request_context.allocator, "two", .{});
+        try expected.putNoClobber(request_context.allocator, "three", .{});
         if (!try context.checkRequest(
             .Test09,
             .{
                 .parameters = .{
-                    .client_id = client_id,
+                    .client_id = request_context.connection.data,
                     .set = expected,
                 },
                 .options = .{},
@@ -578,8 +521,8 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -588,29 +531,23 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
 
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.Test09.ReturnType{
-                .mytype = try generateMytype(allocator),
-            },
-            allocator,
-        );
+        try request_context.serializeResponse(.{
+            .mytype = try generateMytype(request_context.allocator),
+        });
     }
 
     pub fn handleTest10(
         context: *@This(),
         parameters: orgVarlinkCertification.Test10.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
             .Test10,
             .{
                 .parameters = .{
-                    .client_id = client_id,
-                    .mytype = try generateMytype(allocator),
+                    .client_id = request_context.connection.data,
+                    .mytype = try generateMytype(request_context.allocator),
                 },
                 .options = .{ .more = true },
             },
@@ -618,8 +555,8 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -636,22 +573,10 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .{i},
             ) catch unreachable;
             if (i < 10) {
-                try server.serializeContinueResponse(
-                    response_stream,
-                    orgVarlinkCertification.Test10.ReturnType{
-                        .string = string,
-                    },
-                    allocator,
-                );
-                try response_stream.writeByte(0);
+                try request_context.serializeContinueResponse(.{ .string = string });
+                try request_context.connection.response_stream.writeByte(0);
             } else {
-                try server.serializeResponse(
-                    response_stream,
-                    orgVarlinkCertification.Test10.ReturnType{
-                        .string = string,
-                    },
-                    allocator,
-                );
+                try request_context.serializeResponse(.{ .string = string });
             }
         }
     }
@@ -659,15 +584,13 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     pub fn handleTest11(
         context: *@This(),
         parameters: orgVarlinkCertification.Test11.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         var expected_replies: [10][]const u8 = undefined;
         for (0..10) |i| {
             expected_replies[i] = try std.fmt.allocPrint(
-                allocator,
+                request_context.allocator,
                 "Reply number {}",
                 .{i + 1},
             );
@@ -676,7 +599,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             .Test11,
             .{
                 .parameters = .{
-                    .client_id = client_id,
+                    .client_id = request_context.connection.data,
                     .last_more_replies = &expected_replies,
                 },
                 .options = .{ .oneway = true },
@@ -685,8 +608,8 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
@@ -696,34 +619,26 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     pub fn handleEnd(
         context: *@This(),
         parameters: orgVarlinkCertification.End.Parameters,
-        response_stream: anytype,
-        allocator: std.mem.Allocator,
+        request_context: anytype,
         options: Options,
-        client_id: []const u8,
     ) !void {
         if (!try context.checkRequest(
             .End,
             .{
-                .parameters = .{ .client_id = client_id },
+                .parameters = .{ .client_id = request_context.connection.data },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = options,
             },
-            response_stream,
-            allocator,
+            request_context.connection,
+            request_context.allocator,
         )) {
             return;
         }
         context.done = true;
 
-        try server.serializeResponse(
-            response_stream,
-            orgVarlinkCertification.End.ReturnType{
-                .all_ok = true,
-            },
-            allocator,
-        );
+        try request_context.serializeResponse(.{ .all_ok = true });
     }
 } = .{},

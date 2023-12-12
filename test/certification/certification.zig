@@ -22,22 +22,24 @@ fn readMessage(reader: anytype, message_buffer: []u8) ![]u8 {
     return read_stream.getWritten();
 }
 
-fn handleRequest(stream: std.net.Stream, reader: anytype, context: *ServerContext, client_id: []const u8) !void {
+const ServerConnection = server.Connection(
+    ServerContext,
+    std.io.FixedBufferStream([]u8).Writer,
+    []const u8,
+);
+
+fn handleRequest(
+    connection: *ServerConnection,
+    reader: anytype,
+    context: *ServerContext,
+) !void {
     var request_buffer: [4096]u8 = undefined;
-    var write_buffer: [4096]u8 = undefined;
-    var write_stream = std.io.fixedBufferStream(&write_buffer);
     const request = try readMessage(reader, &request_buffer);
-    try server.handleRequest(
+    try connection.handleRequest(
         request,
-        write_stream.writer(),
         gpa,
         context,
-        client_id,
     );
-    if (write_stream.pos != 0) {
-        try write_stream.writer().writeByte(0);
-        try stream.writeAll(write_stream.getWritten());
-    }
 }
 
 fn handleResponse(reader: anytype, state: anytype) !void {
@@ -292,8 +294,26 @@ fn runServer(stderr_buf: anytype, address: std.net.Address) !void {
         .{std.fmt.fmtSliceHexLower(&raw_client_id)},
     ) catch unreachable;
     var context: ServerContext = .{};
+
+    var write_buffer: [4096]u8 = undefined;
+    var write_stream = std.io.fixedBufferStream(&write_buffer);
+
+    var varlink_connection: ServerConnection = .{
+        .response_stream = write_stream.writer(),
+        .data = &client_id_buf,
+    };
+
     while (!context.@"org.varlink.certification".done) {
-        try handleRequest(connection.stream, read_buffer.reader(), &context, &client_id_buf);
+        try handleRequest(
+            &varlink_connection,
+            read_buffer.reader(),
+            &context,
+        );
+        if (write_stream.pos != 0) {
+            try write_stream.writer().writeByte(0);
+            try connection.stream.writeAll(write_stream.getWritten());
+            write_stream.reset();
+        }
     }
 }
 
@@ -351,18 +371,22 @@ test "Client and server can communicate with each other" {
     try callStart(&client_state, request_stream.writer(), allocator);
 
     var server_context: ServerContext = .{};
+    var server_connection = server.createConnection(
+        ServerContext,
+        response_stream.writer(),
+        []const u8,
+        "1234",
+    );
     while (!server_context.@"org.varlink.certification".done and
         !client_context.@"org.varlink.certification".done)
     {
         while (request_stream.count > 0) {
             const request = try readMessage(request_stream.reader(), &request_buffer);
             const old_count = response_stream.count;
-            try server.handleRequest(
+            try server_connection.handleRequest(
                 request,
-                response_stream.writer(),
                 std.testing.allocator,
                 &server_context,
-                "1234",
             );
             if (response_stream.count != old_count) {
                 try response_stream.writer().writeByte(0);
