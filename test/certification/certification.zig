@@ -24,7 +24,9 @@ fn readMessage(reader: anytype, message_buffer: []u8) ![]u8 {
 
 const ServerConnection = server.Connection(
     ServerContext,
-    varlink.json.TrailingZeroWriter(std.io.FixedBufferStream([]u8).Writer),
+    varlink.json.TrailingZeroWriter(
+        std.io.BufferedWriter(4096, std.net.Stream.Writer).Writer,
+    ),
     []const u8,
 );
 
@@ -295,11 +297,9 @@ fn runServer(stderr_buf: anytype, address: std.net.Address) !void {
     ) catch unreachable;
     var context: ServerContext = .{};
 
-    var write_buffer: [4096]u8 = undefined;
-    var write_stream = std.io.fixedBufferStream(&write_buffer);
-
+    var write_buffer = std.io.bufferedWriter(connection.stream.writer());
     var varlink_connection: ServerConnection = .{
-        .response_writer = .{ .writer = write_stream.writer() },
+        .response_writer = .{ .writer = write_buffer.writer() },
         .data = &client_id_buf,
     };
 
@@ -309,8 +309,7 @@ fn runServer(stderr_buf: anytype, address: std.net.Address) !void {
             read_buffer.reader(),
             &context,
         );
-        try connection.stream.writeAll(write_stream.getWritten());
-        write_stream.reset();
+        try write_buffer.flush();
     }
 }
 
