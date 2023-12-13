@@ -69,10 +69,12 @@ fn RequestParameters(comptime Context: type, comptime request: anytype) type {
 }
 
 /// The state of a Varlink client.
-pub fn Client(comptime Context: type) type {
+pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
     const Enum = RequestEnum(Context);
     return struct {
         context: *Context,
+        /// The writer to which Varlink requests are written.
+        request_writer: JsonWriter,
         /// The queue of requests currently waiting to get responded to.
         requests: std.fifo.LinearFifo(Enum, .Dynamic),
         /// True if multiple replies are requested with the "more" option and
@@ -84,9 +86,14 @@ pub fn Client(comptime Context: type) type {
         /// if this field is set.
         errored: bool = false,
 
-        pub fn init(context: *Context, allocator: std.mem.Allocator) @This() {
+        pub fn init(
+            context: *Context,
+            request_writer: JsonWriter,
+            allocator: std.mem.Allocator,
+        ) @This() {
             return .{
                 .context = context,
+                .request_writer = request_writer,
                 .requests = .{
                     .allocator = allocator,
                     .buf = &.{},
@@ -142,7 +149,6 @@ pub fn Client(comptime Context: type) type {
         /// Serialize a Varlink request.
         pub fn serializeRequest(
             client: *@This(),
-            stream: anytype,
             /// The fully qualified name of the request as an enum tag
             comptime method: Enum,
             parameters: RequestParameters(Context, method),
@@ -169,10 +175,7 @@ pub fn Client(comptime Context: type) type {
             }
 
             client.updateFlags(options);
-            try varlinkJson.write(
-                stream,
-                .{ .object = response_map },
-            );
+            try client.request_writer.writeJson(.{ .object = response_map });
             if (!options.oneway) {
                 try client.requests.writeItem(method);
             }

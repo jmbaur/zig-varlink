@@ -8,10 +8,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
 @"org.varlink.certification": struct {
     pub const interface = orgVarlinkCertification;
 
-    request_stream: if (@import("builtin").is_test)
-        std.fifo.LinearFifo(u8, .{ .Static = 4096 }).Writer
-    else
-        std.io.BufferedWriter(4096, std.net.Stream.Writer).Writer,
     allocator: std.mem.Allocator,
     client_id: []const u8 = "",
     last_more_replies: std.ArrayListUnmanaged([]const u8) = .{},
@@ -31,13 +27,11 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         context.client_id = try context.allocator.dupe(u8, response.client_id);
         errdefer context.allocator.free(context.client_id);
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test01",
             .{ .client_id = context.client_id },
             .{},
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest01(
@@ -47,7 +41,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         state: anytype,
     ) !void {
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test02",
             .{
                 .client_id = context.client_id,
@@ -56,7 +49,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             .{},
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest02(
@@ -66,7 +58,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         state: anytype,
     ) !void {
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test03",
             .{
                 .client_id = context.client_id,
@@ -75,7 +66,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             .{},
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest03(
@@ -85,7 +75,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         state: anytype,
     ) !void {
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test04",
             .{
                 .client_id = context.client_id,
@@ -94,7 +83,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             .{},
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest04(
@@ -104,7 +92,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         state: anytype,
     ) !void {
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test05",
             .{
                 .client_id = context.client_id,
@@ -113,7 +100,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             .{},
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest05(
@@ -123,7 +109,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         state: anytype,
     ) !void {
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test06",
             .{
                 .client_id = context.client_id,
@@ -135,7 +120,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             .{},
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest06(
@@ -145,7 +129,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         state: anytype,
     ) !void {
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test07",
             .{
                 .client_id = context.client_id,
@@ -159,7 +142,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             .{},
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest07(
@@ -169,7 +151,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         state: anytype,
     ) !void {
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test08",
             .{
                 .client_id = context.client_id,
@@ -178,7 +159,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             .{},
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest08(
@@ -199,7 +179,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             return_set.putAssumeCapacityNoClobber(key.*, .{});
         }
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test09",
             .{
                 .client_id = context.client_id,
@@ -208,7 +187,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             .{},
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest09(
@@ -218,7 +196,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         state: anytype,
     ) !void {
         try state.serializeRequest(
-            context.request_stream,
             .@"org.varlink.certification.Test10",
             .{
                 .client_id = context.client_id,
@@ -227,7 +204,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
             .{ .more = true },
             allocator,
         );
-        try context.request_stream.writeByte(0);
     }
 
     pub fn handleTest10(
@@ -242,7 +218,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
         );
         if (!state.more) {
             try state.serializeRequest(
-                context.request_stream,
                 .@"org.varlink.certification.Test11",
                 .{
                     .client_id = context.client_id,
@@ -251,9 +226,7 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
                 .{ .oneway = true },
                 allocator,
             );
-            try context.request_stream.writeByte(0);
             try state.serializeRequest(
-                context.request_stream,
                 .@"org.varlink.certification.End",
                 .{
                     .client_id = context.client_id,
@@ -261,7 +234,6 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
                 .{},
                 allocator,
             );
-            try context.request_stream.writeByte(0);
         }
     }
 

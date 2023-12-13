@@ -240,15 +240,13 @@ const Arguments = struct {
     }
 };
 
-fn callStart(state: anytype, writer: anytype, allocator: std.mem.Allocator) !void {
+fn callStart(state: anytype, allocator: std.mem.Allocator) !void {
     try state.serializeRequest(
-        writer,
         .@"org.varlink.certification.Start",
         .{},
         .{},
         allocator,
     );
-    try writer.writeByte(0);
 }
 
 fn runClient(address: std.net.Address) !void {
@@ -258,17 +256,16 @@ fn runClient(address: std.net.Address) !void {
     defer arena.deinit();
     const allocator = arena.allocator();
     var write_buffer = std.io.bufferedWriter(connection.writer());
-    const writer = write_buffer.writer();
+    const writer = varlink.json.trailingZeroWriter(write_buffer.writer());
     var context: ClientContext = .{
         .@"org.varlink.certification" = .{
             .allocator = allocator,
-            .request_stream = writer,
         },
     };
     defer context.@"org.varlink.certification".deinit();
-    var state = Client(ClientContext).init(&context, gpa);
+    var state = Client(ClientContext, @TypeOf(writer)).init(&context, writer, gpa);
     defer state.deinit();
-    try callStart(&state, write_buffer.writer(), allocator);
+    try callStart(&state, allocator);
     try write_buffer.flush();
     var read_buffer = std.io.bufferedReader(connection.reader());
     while (!context.@"org.varlink.certification".done) {
@@ -344,6 +341,7 @@ test "Client and server can communicate with each other" {
         .head = 0,
         .count = 0,
     };
+    const request_writer = varlink.json.trailingZeroWriter(request_stream.writer());
     var response_stream: std.fifo.LinearFifo(u8, .{ .Static = 4096 }) = .{
         .buf = undefined,
         .allocator = {},
@@ -359,13 +357,16 @@ test "Client and server can communicate with each other" {
     var client_context: ClientContext = .{
         .@"org.varlink.certification" = .{
             .allocator = allocator,
-            .request_stream = request_stream.writer(),
         },
     };
     defer client_context.@"org.varlink.certification".deinit();
-    var client_state = Client(ClientContext).init(&client_context, std.testing.allocator);
+    var client_state = Client(ClientContext, @TypeOf(request_writer)).init(
+        &client_context,
+        request_writer,
+        std.testing.allocator,
+    );
     defer client_state.deinit();
-    try callStart(&client_state, request_stream.writer(), allocator);
+    try callStart(&client_state, allocator);
 
     var server_context: ServerContext = .{};
     var server_connection = server.createConnection(
