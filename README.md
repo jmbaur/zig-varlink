@@ -8,13 +8,14 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
 
 [![builds.sr.ht status](https://builds.sr.ht/~mainiomano/zig-varlink/commits/main.svg)](https://builds.sr.ht/~mainiomano/zig-varlink/commits/main?)
 
-zig-varlink is a WIP [Varlink] library for Zig. Design goals:
+zig-varlink is a [Varlink] library for Zig. Features:
 
-- Let the user manage their own sockets as much as possible, or don't require
-  the usage of sockets in the first place
-- Don't depend on nonportable operating-system features
-- Use code generation and/or Zig's comptime capabilities to make Varlink
+- Bring your own sockets. zig-varlink only implements Varlink and lets you use
+  whatever transports and polling systems you like.
+- Use of code generation and Zig's comptime capabilities to make Varlink
   interfaces easy to use and implement
+
+See [our Varlink certification implementation][certification] for an example on usage.
 
 ## License
 
@@ -23,4 +24,5 @@ licensed under Apache-2.0 or MIT, at your option, but please see the individual
 files for their copyright information.
 
 [Varlink]: https://varlink.org/
+[certification]: test/certification/
 [REUSE Specification]: https://reuse.software/spec/
