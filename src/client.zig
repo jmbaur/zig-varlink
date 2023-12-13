@@ -85,6 +85,12 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
         /// requests, so it's not allowed to serialize requests with this state
         /// if this field is set.
         errored: bool = false,
+        /// The arena allocator used for parsing requests and generating
+        /// responses. This is reset every time handleResponse is called,
+        /// invalidating all allocated parameters passed to response handlers.
+        arena: std.heap.ArenaAllocator,
+
+        const max_retained_capacity = 8192;
 
         pub fn init(
             context: *Context,
@@ -100,11 +106,13 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
                     .head = 0,
                     .count = 0,
                 },
+                .arena = std.heap.ArenaAllocator.init(allocator),
             };
         }
 
         pub fn deinit(client: *@This()) void {
             client.requests.deinit();
+            client.arena.deinit();
         }
 
         fn parseError(map: std.json.ObjectMap) error{InvalidMessage}!?[]const u8 {
@@ -153,11 +161,8 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
             comptime method: Enum,
             parameters: RequestParameters(Context, method),
             options: Options,
-            /// The allocator to be used. The allocated memory is not feed on
-            /// success or on failure, so it's recommended to use an arena
-            /// allocator.
-            allocator: std.mem.Allocator,
         ) !void {
+            const allocator = client.arena.allocator();
             var response_map = std.json.ObjectMap.init(allocator);
             try response_map.putNoClobber("method", .{ .string = @tagName(method) });
             try response_map.putNoClobber(
@@ -185,15 +190,12 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
         pub fn handleResponse(
             client: *@This(),
             response: []const u8,
-            /// The allocator to be used for temporary allocations. All memory
-            /// allocated will be freed before this function returns.
-            allocator: std.mem.Allocator,
         ) !void {
-            var arena = std.heap.ArenaAllocator.init(allocator);
-            defer arena.deinit();
+            _ = client.arena.reset(.{ .retain_with_limit = @This().max_retained_capacity });
+            const allocator = client.arena.allocator();
             const json_value = try std.json.parseFromSliceLeaky(
                 std.json.Value,
-                arena.allocator(),
+                allocator,
                 response,
                 .{},
             );
@@ -214,7 +216,7 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
                     split_error.interface,
                     split_error.name,
                     .{ .object = parameters },
-                    arena.allocator(),
+                    allocator,
                     {},
                     client.context,
                     client,
@@ -244,7 +246,7 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
                 split_method.interface,
                 split_method.name,
                 .{ .object = parameters },
-                arena.allocator(),
+                allocator,
                 {},
                 client.context,
                 client,

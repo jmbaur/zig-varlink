@@ -47,7 +47,7 @@ fn handleRequest(
 fn handleResponse(reader: anytype, state: anytype) !void {
     var request_buffer: [4096]u8 = undefined;
     const response = try readMessage(reader, &request_buffer);
-    try state.handleResponse(response, gpa);
+    try state.handleResponse(response);
 }
 
 const Arguments = struct {
@@ -240,12 +240,11 @@ const Arguments = struct {
     }
 };
 
-fn callStart(state: anytype, allocator: std.mem.Allocator) !void {
+fn callStart(state: anytype) !void {
     try state.serializeRequest(
         .@"org.varlink.certification.Start",
         .{},
         .{},
-        allocator,
     );
 }
 
@@ -265,7 +264,7 @@ fn runClient(address: std.net.Address) !void {
     defer context.@"org.varlink.certification".deinit();
     var state = Client(ClientContext, @TypeOf(writer)).init(&context, writer, gpa);
     defer state.deinit();
-    try callStart(&state, allocator);
+    try callStart(&state);
     try write_buffer.flush();
     var read_buffer = std.io.bufferedReader(connection.reader());
     while (!context.@"org.varlink.certification".done) {
@@ -366,7 +365,7 @@ test "Client and server can communicate with each other" {
         std.testing.allocator,
     );
     defer client_state.deinit();
-    try callStart(&client_state, allocator);
+    try callStart(&client_state);
 
     var server_context: ServerContext = .{};
     var server_connection = server.createConnection(
@@ -388,7 +387,7 @@ test "Client and server can communicate with each other" {
         }
         while (response_stream.count > 0) {
             const response = try readMessage(response_stream.reader(), &response_buffer);
-            try client_state.handleResponse(response, std.testing.allocator);
+            try client_state.handleResponse(response);
         }
     }
     try std.testing.expect(server_context.@"org.varlink.certification".done);

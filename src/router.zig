@@ -89,7 +89,6 @@ pub fn route(
                     return @call(.auto, function, .{
                         interface_context,
                         input,
-                        allocator,
                         extra_data,
                     });
                 }
