@@ -530,7 +530,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             ) catch unreachable;
             if (i < 10) {
                 try request_context.serializeContinueResponse(.{ .string = string });
-                try request_context.connection.response_stream.writeByte(0);
             } else {
                 try request_context.serializeResponse(.{ .string = string });
             }

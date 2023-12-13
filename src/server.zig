@@ -92,9 +92,7 @@ pub fn RequestContext(
             if (request_context.options.oneway) {
                 return;
             }
-            // TODO: Have a non-allocating implementation
-            try varlinkJson.write(
-                request_context.connection.response_stream,
+            try request_context.connection.response_writer.writeJson(
                 try varlinkJson.jsonize(
                     .{
                         .parameters = response,
@@ -120,8 +118,7 @@ pub fn RequestContext(
             if (request_context.options.oneway) {
                 return;
             }
-            try varlinkJson.write(
-                request_context.connection.response_stream,
+            try request_context.connection.response_writer.writeJson(
                 try varlinkJson.jsonize(
                     .{
                         .parameters = response,
@@ -150,12 +147,21 @@ pub fn RequestContext(
 /// client.
 pub fn Connection(
     comptime Context: type,
-    comptime ResponseStream: type,
+    comptime ResponseWriter: type,
     comptime UserData: type,
 ) type {
+    if (!@hasDecl(ResponseWriter, "writeJson")) {
+        @compileError("ResponseWriter is missing the writeJson function");
+    }
+    const writer = @field(ResponseWriter, "writeJson");
+    switch (@typeInfo(@TypeOf(writer))) {
+        .Fn => |_| {},
+        else => @compileError("ResponseWriter.writeJson is not a function"),
+    }
+
     return struct {
         /// The writer to which the potential response and errors will be written.
-        response_stream: ResponseStream,
+        response_writer: ResponseWriter,
         /// Per-connection data that is available to request handlers.
         data: UserData,
 
@@ -253,9 +259,7 @@ pub fn Connection(
             response: anytype,
             allocator: std.mem.Allocator,
         ) !void {
-            // TODO: Have a non-allocating implementation
-            try varlinkJson.write(
-                connection.response_stream,
+            try connection.response_writer.writeJson(
                 try varlinkJson.jsonize(
                     .{
                         .parameters = response,
@@ -271,16 +275,16 @@ pub fn Connection(
 /// Return a new connection with the given writer and user data.
 pub fn createConnection(
     comptime Context: type,
-    response_stream: anytype,
+    response_writer: anytype,
     comptime T: type,
     data: T,
 ) Connection(
     Context,
-    @TypeOf(response_stream),
+    @TypeOf(response_writer),
     T,
 ) {
     return .{
-        .response_stream = response_stream,
+        .response_writer = response_writer,
         .data = data,
     };
 }

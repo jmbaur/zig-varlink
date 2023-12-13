@@ -236,3 +236,21 @@ pub fn write(stream: anytype, json: std.json.Value) !void {
     var write_stream = std.json.writeStream(stream, .{});
     try json.jsonStringify(&write_stream);
 }
+
+/// A ResponseWriter that adds a trailing zero byte after each sent message.
+pub fn TrailingZeroWriter(comptime Writer: type) type {
+    return struct {
+        writer: Writer,
+
+        // TODO: Have something that doesn't require an allocation?
+        pub fn writeJson(context: *@This(), json: std.json.Value) Writer.Error!void {
+            try write(context.writer, json);
+            try context.writer.writeByte(0);
+        }
+    };
+}
+
+/// Return a new TrailingZeroWriter with the given underlying writer.
+pub fn trailingZeroWriter(writer: anytype) TrailingZeroWriter(@TypeOf(writer)) {
+    return .{ .writer = writer };
+}

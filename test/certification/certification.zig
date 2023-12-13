@@ -24,7 +24,7 @@ fn readMessage(reader: anytype, message_buffer: []u8) ![]u8 {
 
 const ServerConnection = server.Connection(
     ServerContext,
-    std.io.FixedBufferStream([]u8).Writer,
+    varlink.json.TrailingZeroWriter(std.io.FixedBufferStream([]u8).Writer),
     []const u8,
 );
 
@@ -299,7 +299,7 @@ fn runServer(stderr_buf: anytype, address: std.net.Address) !void {
     var write_stream = std.io.fixedBufferStream(&write_buffer);
 
     var varlink_connection: ServerConnection = .{
-        .response_stream = write_stream.writer(),
+        .response_writer = .{ .writer = write_stream.writer() },
         .data = &client_id_buf,
     };
 
@@ -309,11 +309,8 @@ fn runServer(stderr_buf: anytype, address: std.net.Address) !void {
             read_buffer.reader(),
             &context,
         );
-        if (write_stream.pos != 0) {
-            try write_stream.writer().writeByte(0);
-            try connection.stream.writeAll(write_stream.getWritten());
-            write_stream.reset();
-        }
+        try connection.stream.writeAll(write_stream.getWritten());
+        write_stream.reset();
     }
 }
 
@@ -354,6 +351,7 @@ test "Client and server can communicate with each other" {
         .head = 0,
         .count = 0,
     };
+    var response_writer = varlink.json.trailingZeroWriter(response_stream.writer());
 
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -373,7 +371,7 @@ test "Client and server can communicate with each other" {
     var server_context: ServerContext = .{};
     var server_connection = server.createConnection(
         ServerContext,
-        response_stream.writer(),
+        response_writer,
         []const u8,
         "1234",
     );
@@ -382,15 +380,11 @@ test "Client and server can communicate with each other" {
     {
         while (request_stream.count > 0) {
             const request = try readMessage(request_stream.reader(), &request_buffer);
-            const old_count = response_stream.count;
             try server_connection.handleRequest(
                 request,
                 std.testing.allocator,
                 &server_context,
             );
-            if (response_stream.count != old_count) {
-                try response_stream.writer().writeByte(0);
-            }
         }
         while (response_stream.count > 0) {
             const response = try readMessage(response_stream.reader(), &response_buffer);
