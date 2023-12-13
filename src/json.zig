@@ -237,7 +237,19 @@ pub fn write(stream: anytype, json: std.json.Value) !void {
     try json.jsonStringify(&write_stream);
 }
 
-/// A ResponseWriter that adds a trailing zero byte after each sent message.
+/// Check that the provided type is a valid JsonWriter.
+pub fn checkJsonWriter(comptime JsonWriter: type) void {
+    if (!@hasDecl(JsonWriter, "writeJson")) {
+        @compileError("JsonWriter is missing the writeJson function");
+    }
+    const writer = @field(JsonWriter, "writeJson");
+    switch (@typeInfo(@TypeOf(writer))) {
+        .Fn => |_| {},
+        else => @compileError("JsonWriter.writeJson is not a function"),
+    }
+}
+
+/// A JsonWriter that adds a trailing zero byte after each sent message.
 pub fn TrailingZeroWriter(comptime Writer: type) type {
     return struct {
         writer: Writer,

@@ -147,21 +147,13 @@ pub fn RequestContext(
 /// client.
 pub fn Connection(
     comptime Context: type,
-    comptime ResponseWriter: type,
+    comptime JsonWriter: type,
     comptime UserData: type,
 ) type {
-    if (!@hasDecl(ResponseWriter, "writeJson")) {
-        @compileError("ResponseWriter is missing the writeJson function");
-    }
-    const writer = @field(ResponseWriter, "writeJson");
-    switch (@typeInfo(@TypeOf(writer))) {
-        .Fn => |_| {},
-        else => @compileError("ResponseWriter.writeJson is not a function"),
-    }
-
+    varlinkJson.checkJsonWriter(JsonWriter);
     return struct {
         /// The writer to which the potential response and errors will be written.
-        response_writer: ResponseWriter,
+        response_writer: JsonWriter,
         /// Per-connection data that is available to request handlers.
         data: UserData,
 
