@@ -72,18 +72,18 @@ pub fn route(
                 if (comptime mode == .server) {
                     const connection = extra_data;
                     const Connection = @TypeOf(connection.*);
-                    const request_context: server.RequestContext(
+                    var request_context: server.RequestContext(
                         Connection,
                         Request,
                     ) = .{
                         .connection = connection,
+                        .options = options,
                         .allocator = allocator,
                     };
                     return @call(.auto, function, .{
                         interface_context,
                         input,
-                        request_context,
-                        options,
+                        &request_context,
                     });
                 } else {
                     return @call(.auto, function, .{

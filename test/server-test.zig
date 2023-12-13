@@ -20,12 +20,8 @@ const Context = struct {
             context: *@This(),
             parameters: zigVarlinkTest.TestCall.Parameters,
             request_context: anytype,
-            options: Options,
         ) !void {
             context.counter += 1;
-            if (options.oneway) {
-                return;
-            }
             try request_context.serializeResponse(.{
                 .out = parameters.in +
                     context.counter +

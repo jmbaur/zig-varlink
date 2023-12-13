@@ -148,13 +148,9 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Start.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         _ = parameters;
         context.next_method = .Test01;
-        if (options.oneway) {
-            return;
-        }
         try request_context.serializeResponse(
             .{ .client_id = request_context.connection.data },
         );
@@ -164,7 +160,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test01.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         if (!try context.checkRequest(
             .Test01,
@@ -174,7 +169,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -182,9 +177,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test02;
-        if (options.oneway) {
-            return;
-        }
         try request_context.serializeResponse(.{ .bool = true });
     }
 
@@ -192,7 +184,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test02.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         if (!try context.checkRequest(
             .Test02,
@@ -202,7 +193,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -210,9 +201,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test03;
-        if (options.oneway) {
-            return;
-        }
         try request_context.serializeResponse(.{ .int = 1 });
     }
 
@@ -220,7 +208,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test03.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         if (!try context.checkRequest(
             .Test03,
@@ -230,7 +217,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -238,9 +225,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test04;
-        if (options.oneway) {
-            return;
-        }
         try request_context.serializeResponse(.{ .float = 1.0 });
     }
 
@@ -248,7 +232,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test04.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         if (!try context.checkRequest(
             .Test04,
@@ -258,7 +241,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -266,9 +249,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test05;
-        if (options.oneway) {
-            return;
-        }
         try request_context.serializeResponse(.{ .string = "ping" });
     }
 
@@ -276,7 +256,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test05.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         if (!try context.checkRequest(
             .Test05,
@@ -286,7 +265,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -294,9 +273,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test06;
-        if (options.oneway) {
-            return;
-        }
         try request_context.serializeResponse(
             .{
                 .bool = false,
@@ -311,7 +287,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test06.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         if (!try context.checkRequest(
             .Test06,
@@ -327,7 +302,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -335,9 +310,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test07;
-        if (options.oneway) {
-            return;
-        }
         try request_context.serializeResponse(
             .{
                 .@"struct" = .{
@@ -354,7 +326,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test07.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         if (!try context.checkRequest(
             .Test07,
@@ -372,7 +343,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -380,9 +351,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test08;
-        if (options.oneway) {
-            return;
-        }
         var response_map: std.StringHashMapUnmanaged([]const u8) = .{};
         try response_map.putNoClobber(request_context.allocator, "foo", "Foo");
         try response_map.putNoClobber(request_context.allocator, "bar", "Bar");
@@ -393,7 +361,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test08.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         var expected: std.StringHashMapUnmanaged([]const u8) = .{};
         try expected.putNoClobber(request_context.allocator, "foo", "Foo");
@@ -409,7 +376,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -417,9 +384,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test09;
-        if (options.oneway) {
-            return;
-        }
         const Set = std.meta.fieldInfo(orgVarlinkCertification.Test08.ReturnType, .set).type;
         var response_set: Set = .{};
         try response_set.putNoClobber(request_context.allocator, "one", .{});
@@ -501,7 +465,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test09.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         const Set = std.meta.fieldInfo(orgVarlinkCertification.Test09.Parameters, .set).type;
         var expected: Set = .{};
@@ -519,7 +482,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -527,9 +490,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test10;
-        if (options.oneway) {
-            return;
-        }
 
         try request_context.serializeResponse(.{
             .mytype = try generateMytype(request_context.allocator),
@@ -540,7 +500,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test10.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         if (!try context.checkRequest(
             .Test10,
@@ -553,7 +512,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -561,9 +520,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             return;
         }
         context.next_method = .Test11;
-        if (options.oneway) {
-            return;
-        }
 
         var string_buf: [32]u8 = undefined;
         for (1..11) |i| {
@@ -585,7 +541,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.Test11.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         var expected_replies: [10][]const u8 = undefined;
         for (0..10) |i| {
@@ -606,7 +561,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,
@@ -620,7 +575,6 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         context: *@This(),
         parameters: orgVarlinkCertification.End.Parameters,
         request_context: anytype,
-        options: Options,
     ) !void {
         if (!try context.checkRequest(
             .End,
@@ -630,7 +584,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             },
             .{
                 .parameters = parameters,
-                .options = options,
+                .options = request_context.options,
             },
             request_context.connection,
             request_context.allocator,

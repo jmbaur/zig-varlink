@@ -72,14 +72,26 @@ pub fn RequestContext(
 ) type {
     return struct {
         allocator: std.mem.Allocator,
+        /// The request options.
+        options: Options,
+        /// Whether the request has been responded to (without "continues" set)
+        /// or not.
+        finished: bool = false,
         connection: *Conn,
 
         /// Serialize a Varlink response to the connection. A trailing zero byte
         /// is not written to allow usage with transports not using one.
         pub fn serializeResponse(
-            request_context: @This(),
+            request_context: *@This(),
             response: Request.ReturnType,
         ) !void {
+            if (request_context.finished) {
+                @panic("the request has already been responded to");
+            }
+            request_context.finished = true;
+            if (request_context.options.oneway) {
+                return;
+            }
             // TODO: Have a non-allocating implementation
             try varlinkJson.write(
                 request_context.connection.response_stream,
@@ -96,9 +108,18 @@ pub fn RequestContext(
         /// enabled. A trailing zero byte is not written to allow usage with
         /// transports not using one.
         pub fn serializeContinueResponse(
-            request_context: @This(),
+            request_context: *@This(),
             response: Request.ReturnType,
         ) !void {
+            if (request_context.finished) {
+                @panic("the request has already been responded to");
+            }
+            if (!request_context.options.more) {
+                @panic("serializeContinueResponse called without \"more\" flag set");
+            }
+            if (request_context.options.oneway) {
+                return;
+            }
             try varlinkJson.write(
                 request_context.connection.response_stream,
                 try varlinkJson.jsonize(
@@ -272,13 +293,9 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
             context: *@This(),
             parameters: orgVarlinkService.GetInfo.Parameters,
             request_context: anytype,
-            options: Options,
         ) !void {
             _ = context;
             _ = parameters;
-            if (options.oneway) {
-                return;
-            }
             try request_context.serializeResponse(.{
                 .vendor = Context.vendor,
                 .product = Context.product,
@@ -292,12 +309,8 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
             context: *@This(),
             parameters: orgVarlinkService.GetInterfaceDescription.Parameters,
             request_context: anytype,
-            options: Options,
         ) !void {
             _ = context;
-            if (options.oneway) {
-                return;
-            }
             inline for (@typeInfo(Context).Struct.fields) |field| {
                 if (std.mem.eql(u8, parameters.interface, field.name)) {
                     try request_context.serializeResponse(.{
