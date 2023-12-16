@@ -187,7 +187,7 @@ pub fn Connection(
             const split_method = router.splitQualified(qualified_method) orelse
                 return connection.serializeError(
                 orgVarlinkService.InvalidParameter{ .parameter = qualified_method },
-                allocator,
+                arena.allocator(),
             );
 
             const parameters = try varlinkJson.parseParameters(json_object);
@@ -209,7 +209,7 @@ pub fn Connection(
                 error.MethodNotFound,
                 => try handleRouteError(
                     connection,
-                    allocator,
+                    arena.allocator(),
                     err,
                     error_info,
                 ),
@@ -227,7 +227,7 @@ pub fn Connection(
                             &error_info,
                         ) catch |err2| try handleRouteError(
                             connection,
-                            allocator,
+                            arena.allocator(),
                             err2,
                             error_info,
                         );
@@ -235,7 +235,7 @@ pub fn Connection(
                     }
                     try connection.serializeError(
                         orgVarlinkService.InterfaceNotFound{ .interface = split_method.interface },
-                        allocator,
+                        arena.allocator(),
                     );
                 },
                 else => return err,
