@@ -143,9 +143,12 @@ fn writeTypedef(
     try stream.writeAll("pub const ");
     try stream.writeAll(tokens[1].name);
     try stream.writeAll(" = ");
-    const after_struct = try writeStruct(stream, tokens[2..]);
+    const after_type = if (tokens[2] == .struct_begin)
+        try writeStruct(stream, tokens[2..])
+    else
+        try writeEnumBody(stream, tokens[2..]);
     try stream.writeAll(";\n");
-    return after_struct;
+    return after_type;
 }
 
 fn writeMember(

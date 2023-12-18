@@ -22,6 +22,7 @@ const Context = struct {
             request_context: anytype,
         ) !void {
             context.counter += 1;
+            try std.testing.expectEqual(@TypeOf(parameters.choice).a, parameters.choice);
             try request_context.serializeResponse(.{
                 .out = parameters.in +
                     context.counter +
@@ -56,7 +57,7 @@ test "Varlink handler works correctly" {
         const request =
             \\{
             \\  "method": "org.zig-varlink.test.TestCall",
-            \\  "parameters": {"in": 2}
+            \\  "parameters": {"in": 2, "choice": "a"}
             \\}
         ;
         try connection.handleRequest(request, std.testing.allocator, &context);

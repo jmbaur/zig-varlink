@@ -433,6 +433,7 @@ fn tokenizeStructlike(
     switch (after_name[0]) {
         ')' => {
             start_marker.* = .enum_begin;
+            try tokens.append(.enum_end);
             return after_name[1..];
         },
         ',' => {

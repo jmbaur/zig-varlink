@@ -1,3 +1,4 @@
 interface org.zig-varlink.test
 
-method TestCall(in: int) -> (out: int)
+type TestEnum (a)
+method TestCall(in: int, choice: TestEnum) -> (out: int)
