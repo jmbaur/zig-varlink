@@ -7,3 +7,10 @@ pub const Options = @import("router.zig").Options;
 pub const Client = @import("client.zig").Client;
 pub const server = @import("server.zig");
 pub const service = @import("orgVarlinkService");
+const address = @import("address.zig");
+pub const TcpAddress = address.TcpAddress;
+pub const Address = address.Address;
+
+test {
+    @import("std").testing.refAllDecls(@This());
+}

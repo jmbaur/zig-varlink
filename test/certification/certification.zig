@@ -54,152 +54,6 @@ const Arguments = struct {
     address: std.net.Address,
     client: bool,
 
-    const ParseTcpError = error{
-        MissingClosingBracket,
-        MissingPort,
-        InvalidPort,
-        InvalidAddress,
-    };
-
-    fn parseTcp(address: []const u8) ParseTcpError!std.net.Address {
-        if (address[0] == '[') {
-            const ipv6_end = std.mem.indexOfScalar(u8, address, ']') orelse
-                return error.MissingClosingBracket;
-            if (ipv6_end >= address.len - 2 or address[ipv6_end + 1] != ':') {
-                return error.MissingPort;
-            }
-            const port = std.fmt.parseInt(u16, address[ipv6_end + 2 ..], 10) catch
-                return error.InvalidPort;
-            return std.net.Address.parseIp6(address[1..ipv6_end], port) catch error.InvalidAddress;
-        } else {
-            const colon_position = std.mem.indexOfScalar(u8, address, ':') orelse
-                return error.MissingPort;
-            if (colon_position == address.len - 1) {
-                return error.MissingPort;
-            }
-            const port = std.fmt.parseInt(u16, address[colon_position + 1 ..], 10) catch
-                return error.InvalidPort;
-            return std.net.Address.parseIp4(address[0..colon_position], port) catch error.InvalidAddress;
-        }
-    }
-
-    test "parseTcp can handle IPv4" {
-        {
-            const address = "127.0.0.1:1234";
-            const parsed = try parseTcp(address);
-            const string_form = try std.fmt.allocPrint(
-                std.testing.allocator,
-                "{}",
-                .{parsed},
-            );
-            defer std.testing.allocator.free(string_form);
-            try std.testing.expectEqualStrings("127.0.0.1:1234", string_form);
-        }
-        {
-            const address = "127.0.0.1";
-            try std.testing.expectError(error.MissingPort, parseTcp(address));
-        }
-        {
-            const address = "127.0.0.1:";
-            try std.testing.expectError(error.MissingPort, parseTcp(address));
-        }
-        {
-            const address = "127.0.0.1:-1";
-            try std.testing.expectError(error.InvalidPort, parseTcp(address));
-        }
-        {
-            const address = "609.609.609.609:0";
-            try std.testing.expectError(error.InvalidAddress, parseTcp(address));
-        }
-    }
-
-    test "parseTcp can handle IPv6" {
-        {
-            const address = "[::1]:1234";
-            const parsed = try parseTcp(address);
-            const string_form = try std.fmt.allocPrint(
-                std.testing.allocator,
-                "{}",
-                .{parsed},
-            );
-            defer std.testing.allocator.free(string_form);
-            try std.testing.expectEqualStrings("[::1]:1234", string_form);
-        }
-        {
-            const address = "[::1]";
-            try std.testing.expectError(error.MissingPort, parseTcp(address));
-        }
-        {
-            const address = "[::1]:";
-            try std.testing.expectError(error.MissingPort, parseTcp(address));
-        }
-        {
-            const address = "[::1]:-1";
-            try std.testing.expectError(error.InvalidPort, parseTcp(address));
-        }
-        {
-            const address = "[:::1]:0";
-            try std.testing.expectError(error.InvalidAddress, parseTcp(address));
-        }
-        {
-            const address = "[::1";
-            try std.testing.expectError(error.MissingClosingBracket, parseTcp(address));
-        }
-    }
-
-    const ParseAddressError = ParseTcpError || error{
-        MissingAddress,
-        UnknownScheme,
-        MissingColon,
-    };
-
-    fn parseAddress(address: []const u8) ParseAddressError!std.net.Address {
-        // TODO: How can a semicolon be escaped?
-        const semicolon_pos = std.mem.indexOfScalar(u8, address, ';') orelse address.len;
-        const effective_address = address[0..semicolon_pos];
-        const colon_pos = std.mem.indexOfScalar(u8, effective_address, ':');
-        if (colon_pos) |colon_position| {
-            if (colon_pos == effective_address.len - 1) {
-                return error.MissingAddress;
-            }
-            const scheme = effective_address[0..colon_position];
-            if (std.mem.eql(u8, "tcp", scheme)) {
-                return parseTcp(effective_address[colon_position + 1 ..]);
-            } else {
-                return error.UnknownScheme;
-            }
-        } else {
-            return error.MissingColon;
-        }
-    }
-
-    test parseAddress {
-        const address = "tcp:127.0.0.1:1234;options=123";
-        const parsed = try parseAddress(address);
-        const string_form = try std.fmt.allocPrint(
-            std.testing.allocator,
-            "{}",
-            .{parsed},
-        );
-        defer std.testing.allocator.free(string_form);
-        try std.testing.expectEqualStrings("127.0.0.1:1234", string_form);
-    }
-
-    test "parseAddress reports errors correctly" {
-        {
-            const address = "tcp";
-            try std.testing.expectError(error.MissingColon, parseAddress(address));
-        }
-        {
-            const address = "tcp:";
-            try std.testing.expectError(error.MissingAddress, parseAddress(address));
-        }
-        {
-            const address = "udp:127.0.0.1:0";
-            try std.testing.expectError(error.UnknownScheme, parseAddress(address));
-        }
-    }
-
     fn parseArgument(writer: anytype, argument: []const u8, arguments: *Arguments) !void {
         if (std.mem.eql(u8, "--client", argument)) {
             arguments.client = true;
@@ -208,11 +62,15 @@ const Arguments = struct {
         const expected_prefix = "--varlink=";
         if (std.mem.startsWith(u8, argument, expected_prefix)) {
             const address = argument[expected_prefix.len..];
-            const parsed_address = parseAddress(address) catch |err| {
+            const parsed_address = varlink.Address.parse(address) catch |err| {
                 try writer.print("Failed to parse Varlink address: {}\n", .{err});
                 return error.InvalidArguments;
             };
-            arguments.address = parsed_address;
+            if (parsed_address != .tcp) {
+                try writer.writeAll("Expected a TCP address\n");
+                return error.InvalidArguments;
+            }
+            arguments.address = parsed_address.tcp.toNetAddress();
             return;
         } else {
             try writer.print("Unexpected argument: {s}\n", .{argument});

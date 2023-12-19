@@ -63,6 +63,13 @@ pub fn build(b: *Build) void {
         ),
     );
     router_tests.addModule("orgVarlinkCertification", orgVarlinkCertification);
+    const unit_tests = b.addTest(.{
+        .name = "unit_tests",
+        .root_source_file = .{ .path = "src/varlink.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    unit_tests.addModule("orgVarlinkService", orgVarlinkService);
 
     const certification = b.addExecutable(.{
         .name = "zig-varlink-certification",
@@ -78,8 +85,10 @@ pub fn build(b: *Build) void {
     const test_step = b.step("test", "Run tests");
     const run_tokenizer_tests = b.addRunArtifact(tokenizer_tests);
     const run_router_tests = b.addRunArtifact(router_tests);
+    const run_unit_tests = b.addRunArtifact(unit_tests);
     test_step.dependOn(&run_tokenizer_tests.step);
     test_step.dependOn(&run_router_tests.step);
+    test_step.dependOn(&run_unit_tests.step);
 }
 
 pub fn scanFile(
