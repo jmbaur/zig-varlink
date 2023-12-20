@@ -155,7 +155,8 @@ pub const Address = union(enum) {
         MissingColon,
     };
 
-    /// Parse a Varlink address string into an address.
+    /// Parse a Varlink address string into an address. Device node paths are
+    /// not copied.
     pub fn parse(address: []const u8) ParseError!Address {
         // TODO: How can a semicolon be escaped?
         const semicolon_pos = std.mem.indexOfScalar(u8, address, ';') orelse address.len;
@@ -168,6 +169,8 @@ pub const Address = union(enum) {
             const scheme = effective_address[0..colon_position];
             if (std.mem.eql(u8, "tcp", scheme)) {
                 return .{ .tcp = try parseTcp(effective_address[colon_position + 1 ..]) };
+            } else if (std.mem.eql(u8, "device", scheme)) {
+                return .{ .device = effective_address[colon_position + 1 ..] };
             } else {
                 return error.UnknownScheme;
             }
@@ -177,15 +180,28 @@ pub const Address = union(enum) {
     }
 
     test parse {
-        const address = "tcp:127.0.0.1:1234;options=123";
-        const parsed = try parse(address);
-        const string_form = try std.fmt.allocPrint(
-            std.testing.allocator,
-            "{}",
-            .{parsed},
-        );
-        defer std.testing.allocator.free(string_form);
-        try std.testing.expectEqualStrings("tcp:127.0.0.1:1234", string_form);
+        {
+            const address = "tcp:127.0.0.1:1234;options=123";
+            const parsed = try parse(address);
+            const string_form = try std.fmt.allocPrint(
+                std.testing.allocator,
+                "{}",
+                .{parsed},
+            );
+            defer std.testing.allocator.free(string_form);
+            try std.testing.expectEqualStrings("tcp:127.0.0.1:1234", string_form);
+        }
+        {
+            const address = "device:/dev/null;options=123";
+            const parsed = try parse(address);
+            const string_form = try std.fmt.allocPrint(
+                std.testing.allocator,
+                "{}",
+                .{parsed},
+            );
+            defer std.testing.allocator.free(string_form);
+            try std.testing.expectEqualStrings("device:/dev/null", string_form);
+        }
     }
 
     test "parse reports errors correctly" {
