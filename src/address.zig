@@ -30,6 +30,7 @@ pub const TcpAddress = union(enum) {
 /// A Varlink address.
 pub const Address = union(enum) {
     tcp: TcpAddress,
+    unix: if (std.net.has_unix_sockets) std.os.sockaddr.un else void,
     /// A device node.
     device: []const u8,
 
@@ -44,6 +45,7 @@ pub const Address = union(enum) {
         try out_stream.writeByte(':');
         switch (self) {
             .tcp => |addr| try addr.format(fmt, options, out_stream),
+            .unix => |addr| try out_stream.writeAll(std.mem.sliceTo(&addr.path, 0)),
             .device => |dev| try out_stream.writeAll(dev),
         }
     }
@@ -151,6 +153,9 @@ pub const Address = union(enum) {
 
     pub const ParseError = ParseTcpError || error{
         MissingAddress,
+        NameTooLong,
+        NullByteInUnixPath,
+        UnsupportedUnixSocket,
         UnknownScheme,
         MissingColon,
     };
@@ -169,6 +174,19 @@ pub const Address = union(enum) {
             const scheme = effective_address[0..colon_position];
             if (std.mem.eql(u8, "tcp", scheme)) {
                 return .{ .tcp = try parseTcp(effective_address[colon_position + 1 ..]) };
+            } else if (std.mem.eql(u8, "unix", scheme)) {
+                if (comptime std.net.has_unix_sockets) {
+                    // TODO: Support Linux abstract sockets?
+                    // Address.initUnix doesn't check for null bytes despite not
+                    // supporting them, so let's do that ourselves.
+                    if (std.mem.indexOfScalar(u8, effective_address, 0) != null) {
+                        return error.NullByteInUnixPath;
+                    }
+                    const addr = try std.net.Address.initUnix(effective_address[colon_position + 1 ..]);
+                    return .{ .unix = addr.un };
+                } else {
+                    return error.UnsupportedUnixSocket;
+                }
             } else if (std.mem.eql(u8, "device", scheme)) {
                 return .{ .device = effective_address[colon_position + 1 ..] };
             } else {
@@ -192,6 +210,17 @@ pub const Address = union(enum) {
             try std.testing.expectEqualStrings("tcp:127.0.0.1:1234", string_form);
         }
         {
+            const address = "unix:/run/user/0/sock;options=123";
+            const parsed = try parse(address);
+            const string_form = try std.fmt.allocPrint(
+                std.testing.allocator,
+                "{}",
+                .{parsed},
+            );
+            defer std.testing.allocator.free(string_form);
+            try std.testing.expectEqualStrings("unix:/run/user/0/sock", string_form);
+        }
+        {
             const address = "device:/dev/null;options=123";
             const parsed = try parse(address);
             const string_form = try std.fmt.allocPrint(
@@ -212,6 +241,10 @@ pub const Address = union(enum) {
         {
             const address = "tcp:";
             try std.testing.expectError(error.MissingAddress, parse(address));
+        }
+        {
+            const address = "unix:" ++ "\x00";
+            try std.testing.expectError(error.NullByteInUnixPath, parse(address));
         }
         {
             const address = "udp:127.0.0.1:0";
