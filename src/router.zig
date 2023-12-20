@@ -44,6 +44,9 @@ pub fn route(
         if (@hasDecl(Request, "Parameters") != (mode != .client_error)) {
             continue;
         }
+        if (@hasDecl(Request, "error_name") != (mode == .client_error)) {
+            continue;
+        }
         const WantedType = switch (mode) {
             .client_error => Request,
             .client_method => Request.ReturnType,
