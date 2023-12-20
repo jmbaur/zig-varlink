@@ -24,7 +24,7 @@ fn countRequests(comptime Context: type) comptime_int {
 }
 
 /// Generate an enum with the Context's requests' qualified names as fields.
-fn RequestEnum(comptime Context: type) type {
+fn RequestEnumFor(comptime Context: type) type {
     const request_count = countRequests(Context);
     var requests: [request_count]std.builtin.Type.EnumField = undefined;
     var count_requests: u32 = 0;
@@ -70,13 +70,16 @@ fn RequestParameters(comptime Context: type, comptime request: anytype) type {
 
 /// The state of a Varlink client.
 pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
-    const Enum = RequestEnum(Context);
     return struct {
+        /// An enum with all fully qualified request names from the interfaces
+        /// of the Context as field names.
+        pub const RequestEnum = RequestEnumFor(Context);
+
         context: *Context,
         /// The writer to which Varlink requests are written.
         request_writer: JsonWriter,
         /// The queue of requests currently waiting to get responded to.
-        requests: std.fifo.LinearFifo(Enum, .Dynamic),
+        requests: std.fifo.LinearFifo(RequestEnum, .Dynamic),
         /// True if multiple replies are requested with the "more" option and
         /// the server hasn't yet sent a reply without the "continues" flag set.
         more: bool = false,
@@ -158,7 +161,7 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
         pub fn serializeRequest(
             client: *@This(),
             /// The fully qualified name of the request as an enum tag
-            comptime method: Enum,
+            comptime method: RequestEnum,
             parameters: RequestParameters(Context, method),
             options: Options,
         ) !void {
