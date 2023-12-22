@@ -65,15 +65,11 @@ fn handleRouteError(
     }
 }
 
-/// Per-connection and per-request context that is passed to request handlers.
-pub fn RequestContext(
+fn ContinuationContextFor(
     comptime Conn: type,
     comptime Request: type,
 ) type {
     return struct {
-        allocator: std.mem.Allocator,
-        /// The request options.
-        options: Options,
         /// Whether the request has been responded to (without "continues" set)
         /// or not.
         finished: bool = false,
@@ -81,22 +77,20 @@ pub fn RequestContext(
 
         /// Serialize a Varlink response to the connection.
         pub fn serializeResponse(
-            request_context: *@This(),
+            continuation_context: *@This(),
             response: Request.ReturnType,
+            allocator: std.mem.Allocator,
         ) !void {
-            if (request_context.finished) {
+            if (continuation_context.finished) {
                 @panic("the request has already been responded to");
             }
-            request_context.finished = true;
-            if (request_context.options.oneway) {
-                return;
-            }
-            try request_context.connection.response_writer.writeJson(
+            continuation_context.finished = true;
+            try continuation_context.connection.response_writer.writeJson(
                 try varlinkJson.jsonize(
                     .{
                         .parameters = response,
                     },
-                    request_context.allocator,
+                    allocator,
                 ),
             );
         }
@@ -104,27 +98,97 @@ pub fn RequestContext(
         /// Serialize a Varlink response to the connection with "continues"
         /// enabled.
         pub fn serializeContinueResponse(
-            request_context: *@This(),
+            continuation_context: @This(),
             response: Request.ReturnType,
+            allocator: std.mem.Allocator,
         ) !void {
-            if (request_context.finished) {
+            if (continuation_context.finished) {
                 @panic("the request has already been responded to");
             }
-            if (!request_context.options.more) {
-                @panic("serializeContinueResponse called without \"more\" flag set");
-            }
-            if (request_context.options.oneway) {
-                return;
-            }
-            try request_context.connection.response_writer.writeJson(
+            try continuation_context.connection.response_writer.writeJson(
                 try varlinkJson.jsonize(
                     .{
                         .parameters = response,
                         .continues = true,
                     },
-                    request_context.allocator,
+                    allocator,
                 ),
             );
+        }
+
+        /// Serialize a Varlink error to the connection.
+        pub fn serializeError(
+            continuation_context: @This(),
+            response: anytype,
+            allocator: std.mem.Allocator,
+        ) !void {
+            return continuation_context.connection.serializeError(
+                response,
+                allocator,
+            );
+        }
+    };
+}
+
+/// Per-connection and per-request context that is passed to request handlers.
+pub fn RequestContext(
+    comptime Conn: type,
+    comptime Request: type,
+) type {
+    return struct {
+        pub const ContinuationContext = ContinuationContextFor(Conn, Request);
+
+        allocator: std.mem.Allocator,
+        /// The request options.
+        options: Options,
+        /// A version of the request context with no allocator and options. This
+        /// can be used to send further responses to a client requesting them.
+        /// Its methods must be used with an arena allocator or similar as they
+        /// don't provide a way to free memory.
+        continuation_context: ContinuationContext,
+
+        /// Return the connection of the request context.
+        pub fn getConnection(request_context: @This()) *Conn {
+            return request_context.continuation_context.connection;
+        }
+
+        /// Return the user data of the connection.
+        pub fn getData(request_context: @This()) std.meta.fieldInfo(Conn, .data).type {
+            return request_context.continuation_context.connection.data;
+        }
+
+        /// Serialize a Varlink response to the connection.
+        pub fn serializeResponse(
+            request_context: *@This(),
+            response: Request.ReturnType,
+        ) !void {
+            if (request_context.options.oneway) {
+                return;
+            }
+            try request_context.continuation_context.serializeResponse(
+                response,
+                request_context.allocator,
+            );
+        }
+
+        /// Serialize a Varlink response to the connection with "continues"
+        /// enabled. Returns the continuation context on success and null for
+        /// oneway requests.
+        pub fn serializeContinueResponse(
+            request_context: *@This(),
+            response: Request.ReturnType,
+        ) !?ContinuationContext {
+            if (!request_context.options.more) {
+                @panic("serializeContinueResponse called without \"more\" flag set");
+            }
+            if (request_context.options.oneway) {
+                return null;
+            }
+            try request_context.continuation_context.serializeContinueResponse(
+                response,
+                request_context.allocator,
+            );
+            return request_context.continuation_context;
         }
 
         /// Serialize a Varlink error to the connection.
@@ -132,7 +196,7 @@ pub fn RequestContext(
             request_context: @This(),
             response: anytype,
         ) !void {
-            return request_context.connection.serializeError(
+            try request_context.continuation_context.serializeError(
                 response,
                 request_context.allocator,
             );

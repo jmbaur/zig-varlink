@@ -26,7 +26,7 @@ const Context = struct {
             try request_context.serializeResponse(.{
                 .out = parameters.in +
                     context.counter +
-                    request_context.connection.data,
+                    request_context.getData(),
             });
         }
     } = .{},

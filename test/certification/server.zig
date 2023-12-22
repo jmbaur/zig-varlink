@@ -151,9 +151,9 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
     ) !void {
         _ = parameters;
         context.next_method = .Test01;
-        try request_context.serializeResponse(
-            .{ .client_id = request_context.connection.data },
-        );
+        try request_context.serializeResponse(.{
+            .client_id = request_context.getData(),
+        });
     }
 
     pub fn handleTest01(
@@ -164,14 +164,14 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (!try context.checkRequest(
             .Test01,
             .{
-                .parameters = .{ .client_id = request_context.connection.data },
+                .parameters = .{ .client_id = request_context.getData() },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -188,14 +188,14 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (!try context.checkRequest(
             .Test02,
             .{
-                .parameters = .{ .client_id = request_context.connection.data, .bool = true },
+                .parameters = .{ .client_id = request_context.getData(), .bool = true },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -212,14 +212,14 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (!try context.checkRequest(
             .Test03,
             .{
-                .parameters = .{ .client_id = request_context.connection.data, .int = 1 },
+                .parameters = .{ .client_id = request_context.getData(), .int = 1 },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -236,14 +236,14 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (!try context.checkRequest(
             .Test04,
             .{
-                .parameters = .{ .client_id = request_context.connection.data, .float = 1.0 },
+                .parameters = .{ .client_id = request_context.getData(), .float = 1.0 },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -260,14 +260,14 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (!try context.checkRequest(
             .Test05,
             .{
-                .parameters = .{ .client_id = request_context.connection.data, .string = "ping" },
+                .parameters = .{ .client_id = request_context.getData(), .string = "ping" },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -292,7 +292,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             .Test06,
             .{
                 .parameters = .{
-                    .client_id = request_context.connection.data,
+                    .client_id = request_context.getData(),
                     .bool = false,
                     .int = 2,
                     .float = std.math.pi,
@@ -304,7 +304,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -331,7 +331,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             .Test07,
             .{
                 .parameters = .{
-                    .client_id = request_context.connection.data,
+                    .client_id = request_context.getData(),
                     .@"struct" = .{
                         .bool = false,
                         .int = 2,
@@ -345,7 +345,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -369,7 +369,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             .Test08,
             .{
                 .parameters = .{
-                    .client_id = request_context.connection.data,
+                    .client_id = request_context.getData(),
                     .map = expected,
                 },
                 .options = .{},
@@ -378,7 +378,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -475,7 +475,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             .Test09,
             .{
                 .parameters = .{
-                    .client_id = request_context.connection.data,
+                    .client_id = request_context.getData(),
                     .set = expected,
                 },
                 .options = .{},
@@ -484,7 +484,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -505,7 +505,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             .Test10,
             .{
                 .parameters = .{
-                    .client_id = request_context.connection.data,
+                    .client_id = request_context.getData(),
                     .mytype = try generateMytype(request_context.allocator),
                 },
                 .options = .{ .more = true },
@@ -514,7 +514,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -529,7 +529,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .{i},
             ) catch unreachable;
             if (i < 10) {
-                try request_context.serializeContinueResponse(.{ .string = string });
+                _ = try request_context.serializeContinueResponse(.{ .string = string });
             } else {
                 try request_context.serializeResponse(.{ .string = string });
             }
@@ -553,7 +553,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
             .Test11,
             .{
                 .parameters = .{
-                    .client_id = request_context.connection.data,
+                    .client_id = request_context.getData(),
                     .last_more_replies = &expected_replies,
                 },
                 .options = .{ .oneway = true },
@@ -562,7 +562,7 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;
@@ -578,14 +578,14 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         if (!try context.checkRequest(
             .End,
             .{
-                .parameters = .{ .client_id = request_context.connection.data },
+                .parameters = .{ .client_id = request_context.getData() },
                 .options = .{},
             },
             .{
                 .parameters = parameters,
                 .options = request_context.options,
             },
-            request_context.connection,
+            request_context.getConnection(),
             request_context.allocator,
         )) {
             return;

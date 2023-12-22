@@ -79,7 +79,7 @@ pub fn route(
                         Connection,
                         Request,
                     ) = .{
-                        .connection = connection,
+                        .continuation_context = .{ .connection = connection },
                         .options = options,
                         .allocator = allocator,
                     };
