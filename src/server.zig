@@ -79,8 +79,7 @@ pub fn RequestContext(
         finished: bool = false,
         connection: *Conn,
 
-        /// Serialize a Varlink response to the connection. A trailing zero byte
-        /// is not written to allow usage with transports not using one.
+        /// Serialize a Varlink response to the connection.
         pub fn serializeResponse(
             request_context: *@This(),
             response: Request.ReturnType,
@@ -103,8 +102,7 @@ pub fn RequestContext(
         }
 
         /// Serialize a Varlink response to the connection with "continues"
-        /// enabled. A trailing zero byte is not written to allow usage with
-        /// transports not using one.
+        /// enabled.
         pub fn serializeContinueResponse(
             request_context: *@This(),
             response: Request.ReturnType,
@@ -129,8 +127,7 @@ pub fn RequestContext(
             );
         }
 
-        /// Serialize a Varlink error to the connection. A trailing zero byte is
-        /// not written to allow usage with transports not using one.
+        /// Serialize a Varlink error to the connection.
         pub fn serializeError(
             request_context: @This(),
             response: anytype,
@@ -160,7 +157,7 @@ pub fn Connection(
         /// Handle a Varlink request.
         pub fn handleRequest(
             connection: *@This(),
-            /// The request string without the trailing zero byte
+            /// The request string without a trailing zero byte
             request: []const u8,
             /// The allocator to be used by the implementation. All allocations are
             /// always freed before the function returns.
@@ -242,10 +239,9 @@ pub fn Connection(
             };
         }
 
-        /// Serialize a Varlink error to the given connection. A trailing zero
-        /// byte is not written to allow usage with transports not using one.
-        /// This method does not free its allocated memory, so it's recommended
-        /// to use it with an arena allocator
+        /// Serialize a Varlink error to the given connection. This method does
+        /// not free its allocated memory, so it's recommended to use it with an
+        /// arena allocator
         pub fn serializeError(
             connection: *@This(),
             response: anytype,
