@@ -143,7 +143,7 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
         fn updateFlags(client: *@This(), options: Options) void {
             if (client.errored) {
                 // It's a programming error to keep doing requests after
-                // receiving an error. It's becomes impossible to know which
+                // receiving an error. It becomes impossible to know which
                 // response relates to which request after an error has been
                 // received.
                 @panic("An error has been received from the server");
