@@ -37,7 +37,7 @@ test "Varlink handler works correctly" {
     var buffer: [4096]u8 = undefined;
     {
         var response_stream = std.io.fixedBufferStream(&buffer);
-        var response_writer = varlink.json.trailingZeroWriter(response_stream.writer());
+        const response_writer = varlink.json.trailingZeroWriter(response_stream.writer());
         var connection = server.createConnection(Context, response_writer, u32, 5);
         const request =
             \\{
@@ -52,7 +52,7 @@ test "Varlink handler works correctly" {
     }
     {
         var response_stream = std.io.fixedBufferStream(&buffer);
-        var response_writer = varlink.json.trailingZeroWriter(response_stream.writer());
+        const response_writer = varlink.json.trailingZeroWriter(response_stream.writer());
         var connection = server.createConnection(Context, response_writer, u32, 5);
         const request =
             \\{

@@ -235,7 +235,7 @@ pub fn main() !void {
     defer args.deinit();
     const arguments = Arguments.parse(stderr_writer, &args) catch {
         try stderr_buf.flush();
-        std.os.exit(1);
+        std.process.exit(1);
     };
 
     const input = getInput: {
@@ -245,7 +245,7 @@ pub fn main() !void {
         ) catch |err| {
             try stderr_writer.print("Failed to open the input file: {}\n", .{err});
             try stderr_buf.flush();
-            std.os.exit(1);
+            std.process.exit(1);
         };
         defer input_file.close();
         break :getInput try input_file.readToEndAllocOptions(
@@ -260,7 +260,7 @@ pub fn main() !void {
     defer allocator.free(input);
     if (!std.unicode.utf8ValidateSlice(input)) {
         try stderr.writer().writeAll("Input is not valid UTF-8!\n");
-        std.os.exit(1);
+        std.process.exit(1);
     }
     // TODO: Error reporting using error_pos
     var error_pos: ?[*]const u8 = null;
@@ -273,7 +273,7 @@ pub fn main() !void {
     ) catch |err| {
         try stderr_writer.print("Failed to create the output file: {}\n", .{err});
         try stderr_buf.flush();
-        std.os.exit(1);
+        std.process.exit(1);
     };
     defer output_file.close();
     var output_buf = std.io.bufferedWriter(output_file.writer());

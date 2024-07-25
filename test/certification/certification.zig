@@ -132,9 +132,8 @@ fn runClient(address: std.net.Address) !void {
 }
 
 fn runServer(stderr_buf: anytype, address: std.net.Address) !void {
-    var socket_server = std.net.StreamServer.init(.{ .reuse_address = true });
+    var socket_server = try address.listen(.{ .reuse_address = true });
     defer socket_server.deinit();
-    try socket_server.listen(address);
     try stderr_buf.writer().print("Listening to {}\n", .{socket_server.listen_address});
     try stderr_buf.flush();
 
@@ -142,7 +141,7 @@ fn runServer(stderr_buf: anytype, address: std.net.Address) !void {
     defer connection.stream.close();
     var read_buffer = std.io.bufferedReader(connection.stream.reader());
     var raw_client_id: [16]u8 = undefined;
-    try std.os.getrandom(&raw_client_id);
+    try std.posix.getrandom(&raw_client_id);
     var client_id_buf: [32]u8 = undefined;
     _ = std.fmt.bufPrint(
         &client_id_buf,
@@ -176,7 +175,7 @@ pub fn main() !void {
     defer args.deinit();
     const arguments = Arguments.parse(stderr_writer, &args) catch {
         try stderr_buf.flush();
-        std.os.exit(1);
+        std.process.exit(1);
     };
     if (arguments.client) {
         try runClient(arguments.address);
@@ -205,7 +204,7 @@ test "Client and server can communicate with each other" {
         .head = 0,
         .count = 0,
     };
-    var response_writer = varlink.json.trailingZeroWriter(response_stream.writer());
+    const response_writer = varlink.json.trailingZeroWriter(response_stream.writer());
 
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();

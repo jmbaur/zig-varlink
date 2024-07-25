@@ -30,7 +30,7 @@ pub const TcpAddress = union(enum) {
 /// A Varlink address.
 pub const Address = union(enum) {
     tcp: TcpAddress,
-    unix: if (std.net.has_unix_sockets) std.os.sockaddr.un else void,
+    unix: if (std.net.has_unix_sockets) std.posix.sockaddr.un else void,
     /// A device node.
     device: []const u8,
 
