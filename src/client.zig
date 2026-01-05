@@ -12,10 +12,10 @@ fn countRequests(comptime Context: type) comptime_int {
     var request_count: comptime_int = 0;
     for (std.meta.fields(Context)) |field| {
         const Interface = field.type.interface;
-        const decls = @typeInfo(Interface).Struct.decls;
+        const decls = @typeInfo(Interface).@"struct".decls;
         for (decls) |decl| {
             const Decl = @field(Interface, decl.name);
-            if (@typeInfo(@TypeOf(Decl)) == .Type and @hasDecl(Decl, "Parameters")) {
+            if (@typeInfo(@TypeOf(Decl)) == .type and @hasDecl(Decl, "Parameters")) {
                 request_count += 1;
             }
         }
@@ -30,10 +30,10 @@ fn RequestEnumFor(comptime Context: type) type {
     var count_requests: u32 = 0;
     for (std.meta.fields(Context)) |field| {
         const Interface = field.type.interface;
-        const decls = @typeInfo(Interface).Struct.decls;
+        const decls = @typeInfo(Interface).@"struct".decls;
         for (decls) |decl| {
             const Decl = @field(Interface, decl.name);
-            if (@typeInfo(@TypeOf(Decl)) == .Type and @hasDecl(Decl, "Parameters")) {
+            if (@typeInfo(@TypeOf(Decl)) == .type and @hasDecl(Decl, "Parameters")) {
                 requests[count_requests] = .{
                     .name = field.name ++ "." ++ decl.name,
                     .value = count_requests,
@@ -43,7 +43,7 @@ fn RequestEnumFor(comptime Context: type) type {
         }
     }
     return @Type(.{
-        .Enum = .{
+        .@"enum" = .{
             .tag_type = std.math.IntFittingRange(0, count_requests),
             .fields = requests[0..count_requests],
             .decls = &.{},
@@ -69,7 +69,7 @@ fn RequestParameters(comptime Context: type, comptime request: anytype) type {
 }
 
 /// The state of a Varlink client.
-pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
+pub fn Client(comptime Context: type) type {
     return struct {
         /// An enum with all fully qualified request names from the interfaces
         /// of the Context as field names.
@@ -77,9 +77,11 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
 
         context: *Context,
         /// The writer to which Varlink requests are written.
-        request_writer: JsonWriter,
+        request_writer: *std.Io.Writer,
         /// The queue of requests currently waiting to get responded to.
-        requests: std.fifo.LinearFifo(RequestEnum, .Dynamic),
+        requests: [std.math.maxInt(u7) + 1]RequestEnum = undefined,
+        request_read_index: u7 = 0,
+        request_write_index: u7 = 0,
         /// True if multiple replies are requested with the "more" option and
         /// the server hasn't yet sent a reply without the "continues" flag set.
         more: bool = false,
@@ -97,24 +99,17 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
 
         pub fn init(
             context: *Context,
-            request_writer: JsonWriter,
+            request_writer: *std.Io.Writer,
             allocator: std.mem.Allocator,
         ) @This() {
             return .{
                 .context = context,
                 .request_writer = request_writer,
-                .requests = .{
-                    .allocator = allocator,
-                    .buf = &.{},
-                    .head = 0,
-                    .count = 0,
-                },
                 .arena = std.heap.ArenaAllocator.init(allocator),
             };
         }
 
         pub fn deinit(client: *@This()) void {
-            client.requests.deinit();
             client.arena.deinit();
         }
 
@@ -181,11 +176,14 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
             if (options.upgrade) {
                 try response_map.putNoClobber("upgrade", .{ .bool = true });
             }
+            const json: std.json.Value = .{ .object = response_map };
 
             client.updateFlags(options);
-            try client.request_writer.writeJson(.{ .object = response_map });
+            try std.json.Stringify.value(json, .{}, client.request_writer);
+            try client.request_writer.writeByte(0);
             if (!options.oneway) {
-                try client.requests.writeItem(method);
+                client.requests[client.request_write_index] = method;
+                client.request_write_index +%= 1;
             }
         }
 
@@ -226,10 +224,10 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
                     &error_info,
                 );
             }
-            // TODO: Return error on empty fifo? The server could be sending an
-            // unwarranted response at this point instead of the client code
-            // being wrong.
-            const qualified_method = @tagName(client.requests.peekItem(0));
+            // TODO: Return error on empty request queue? The server could be
+            // sending an unwarranted response at this point instead of the
+            // client code being wrong.
+            const qualified_method = @tagName(client.requests[client.request_read_index]);
             const split_method = router.splitQualified(qualified_method) orelse
                 return error.InvalidMessage;
 
@@ -239,7 +237,7 @@ pub fn Client(comptime Context: type, comptime JsonWriter: type) type {
             }
             if (!continues) {
                 client.more = false;
-                client.requests.discard(1);
+                client.request_read_index +%= 1;
             }
 
             // TODO: Pass this to the user?

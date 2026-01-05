@@ -36,9 +36,8 @@ test "Varlink handler works correctly" {
     var context: Context = .{};
     var buffer: [4096]u8 = undefined;
     {
-        var response_stream = std.io.fixedBufferStream(&buffer);
-        const response_writer = varlink.json.trailingZeroWriter(response_stream.writer());
-        var connection = server.createConnection(Context, response_writer, u32, 5);
+        var response_writer = std.io.Writer.fixed(&buffer);
+        var connection = server.createConnection(Context, &response_writer, u32, 5);
         const request =
             \\{
             \\  "method": "org.varlink.service.GetInfo",
@@ -48,12 +47,11 @@ test "Varlink handler works correctly" {
         try connection.handleRequest(request, std.testing.allocator, &context);
         try std.testing.expectEqualStrings(
             \\{"parameters":{"vendor":"test","product":"test","version":"0.1","url":"http://example.com/","interfaces":["org.varlink.service","org.zig-varlink.test"]}}
-        ++ "\x00", response_stream.getWritten());
+        ++ "\x00", response_writer.buffered());
     }
     {
-        var response_stream = std.io.fixedBufferStream(&buffer);
-        const response_writer = varlink.json.trailingZeroWriter(response_stream.writer());
-        var connection = server.createConnection(Context, response_writer, u32, 5);
+        var response_writer = std.io.Writer.fixed(&buffer);
+        var connection = server.createConnection(Context, &response_writer, u32, 5);
         const request =
             \\{
             \\  "method": "org.zig-varlink.test.TestCall",
@@ -63,6 +61,6 @@ test "Varlink handler works correctly" {
         try connection.handleRequest(request, std.testing.allocator, &context);
         try std.testing.expectEqualStrings(
             \\{"parameters":{"out":8}}
-        ++ "\x00", response_stream.getWritten());
+        ++ "\x00", response_writer.buffered());
     }
 }

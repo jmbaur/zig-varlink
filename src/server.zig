@@ -85,14 +85,14 @@ fn ContinuationContextFor(
                 @panic("the request has already been responded to");
             }
             continuation_context.finished = true;
-            try continuation_context.connection.response_writer.writeJson(
-                try varlinkJson.jsonize(
-                    .{
-                        .parameters = response,
-                    },
-                    allocator,
-                ),
+            const json = try varlinkJson.jsonize(
+                .{
+                    .parameters = response,
+                },
+                allocator,
             );
+            try std.json.Stringify.value(json, .{}, continuation_context.connection.response_writer);
+            try continuation_context.connection.response_writer.writeByte(0);
         }
 
         /// Serialize a Varlink response to the connection with "continues"
@@ -105,15 +105,15 @@ fn ContinuationContextFor(
             if (continuation_context.finished) {
                 @panic("the request has already been responded to");
             }
-            try continuation_context.connection.response_writer.writeJson(
-                try varlinkJson.jsonize(
-                    .{
-                        .parameters = response,
-                        .continues = true,
-                    },
-                    allocator,
-                ),
+            const json = try varlinkJson.jsonize(
+                .{
+                    .parameters = response,
+                    .continues = true,
+                },
+                allocator,
             );
+            try std.json.Stringify.value(json, .{}, continuation_context.connection.response_writer);
+            try continuation_context.connection.response_writer.writeByte(0);
         }
 
         /// Serialize a Varlink error to the connection.
@@ -208,13 +208,11 @@ pub fn RequestContext(
 /// client.
 pub fn Connection(
     comptime Context: type,
-    comptime JsonWriter: type,
     comptime UserData: type,
 ) type {
-    varlinkJson.checkJsonWriter(JsonWriter);
     return struct {
         /// The writer to which the potential response and errors will be written.
-        response_writer: JsonWriter,
+        response_writer: *std.Io.Writer,
         /// Per-connection data that is available to request handlers.
         data: UserData,
 
@@ -247,9 +245,9 @@ pub fn Connection(
             const qualified_method = try parseMethod(json_object);
             const split_method = router.splitQualified(qualified_method) orelse
                 return connection.serializeError(
-                orgVarlinkService.InvalidParameter{ .parameter = qualified_method },
-                arena.allocator(),
-            );
+                    orgVarlinkService.InvalidParameter{ .parameter = qualified_method },
+                    arena.allocator(),
+                );
 
             const parameters = try varlinkJson.parseParameters(json_object);
             const options = try parseOptions(json_object);
@@ -311,15 +309,15 @@ pub fn Connection(
             response: anytype,
             allocator: std.mem.Allocator,
         ) !void {
-            try connection.response_writer.writeJson(
-                try varlinkJson.jsonize(
-                    .{
-                        .parameters = response,
-                        .@"error" = @TypeOf(response).error_name,
-                    },
-                    allocator,
-                ),
+            const json = try varlinkJson.jsonize(
+                .{
+                    .parameters = response,
+                    .@"error" = @TypeOf(response).error_name,
+                },
+                allocator,
             );
+            try std.json.Stringify.value(json, .{}, connection.response_writer);
+            try connection.response_writer.writeByte(0);
         }
     };
 }
@@ -327,12 +325,11 @@ pub fn Connection(
 /// Return a new connection with the given writer and user data.
 pub fn createConnection(
     comptime Context: type,
-    response_writer: anytype,
+    response_writer: *std.Io.Writer,
     comptime T: type,
     data: T,
 ) Connection(
     Context,
-    @TypeOf(response_writer),
     T,
 ) {
     return .{
@@ -367,7 +364,7 @@ fn OrgVarlinkServiceImpl(comptime Context: type) type {
             request_context: anytype,
         ) !void {
             _ = context;
-            inline for (@typeInfo(Context).Struct.fields) |field| {
+            inline for (@typeInfo(Context).@"struct".fields) |field| {
                 if (std.mem.eql(u8, parameters.interface, field.name)) {
                     try request_context.serializeResponse(.{
                         .description = field.type.interface.description,

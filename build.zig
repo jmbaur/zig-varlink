@@ -11,9 +11,11 @@ pub fn build(b: *Build) void {
 
     const scanner = b.addExecutable(.{
         .name = "zig-varlink-scanner",
-        .root_source_file = b.path("src/scanner.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/scanner.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     b.installArtifact(scanner);
 
@@ -25,6 +27,8 @@ pub fn build(b: *Build) void {
     );
     const varlink = b.addModule("varlink", .{
         .root_source_file = b.path("src/varlink.zig"),
+        .target = target,
+        .optimize = optimize,
         .imports = &.{
             .{
                 .name = "orgVarlinkService",
@@ -42,15 +46,19 @@ pub fn build(b: *Build) void {
 
     const tokenizer_tests = b.addTest(.{
         .name = "tokenizer_tests",
-        .root_source_file = b.path("src/tokenizer.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/tokenizer.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     const router_tests = b.addTest(.{
         .name = "router_tests",
-        .root_source_file = b.path("test/tests.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("test/tests.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     router_tests.root_module.addImport("varlink", varlink);
     router_tests.root_module.addImport(
@@ -65,18 +73,20 @@ pub fn build(b: *Build) void {
     router_tests.root_module.addImport("orgVarlinkCertification", orgVarlinkCertification);
     const unit_tests = b.addTest(.{
         .name = "unit_tests",
-        .root_source_file = b.path("src/varlink.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = varlink,
     });
     unit_tests.root_module.addImport("orgVarlinkService", orgVarlinkService);
 
     const certification = b.addExecutable(.{
         .name = "zig-varlink-certification",
-        .root_source_file = b.path("test/certification/certification.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
+        .root_module = b.createModule(
+            .{
+                .root_source_file = b.path("test/certification/certification.zig"),
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            },
+        ),
     });
     certification.root_module.addImport("varlink", varlink);
     certification.root_module.addImport("orgVarlinkCertification", orgVarlinkCertification);

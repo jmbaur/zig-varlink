@@ -153,6 +153,7 @@ test skipWord {
 fn tokenizeName(
     input: []const u8,
     tokens: *Tokens,
+    allocator: std.mem.Allocator,
     error_pos: *?[*]const u8,
 ) ![]const u8 {
     for (input, 0..) |c, i| {
@@ -163,7 +164,7 @@ fn tokenizeName(
                     error_pos.* = input.ptr;
                     return error.InvalidName;
                 }
-                try tokens.append(.{ .name = input[0..i] });
+                try tokens.append(allocator, .{ .name = input[0..i] });
                 return input[i..];
             },
         }
@@ -171,20 +172,21 @@ fn tokenizeName(
     if (input.len == 0) {
         return error.InvalidName;
     }
-    try tokens.append(.{ .name = input });
+    try tokens.append(allocator, .{ .name = input });
     return &.{};
 }
 
 test tokenizeName {
     const gpa = std.testing.allocator;
-    var tokens = Tokens.init(gpa);
-    defer tokens.deinit();
+    var tokens: Tokens = .empty;
+    defer tokens.deinit(gpa);
     var error_pos: ?[*]const u8 = null;
     try testing.expectEqualStrings(
         "",
         try tokenizeName(
             "test",
             &tokens,
+            gpa,
             &error_pos,
         ),
     );
@@ -195,6 +197,7 @@ test tokenizeName {
         try tokenizeName(
             "test ",
             &tokens,
+            gpa,
             &error_pos,
         ),
     );
@@ -206,6 +209,7 @@ test tokenizeName {
         tokenizeName(
             testString,
             &tokens,
+            gpa,
             &error_pos,
         ),
     );
@@ -219,19 +223,20 @@ test tokenizeName {
 fn tokenizeInterface(
     input: []const u8,
     tokens: *Tokens,
+    allocator: std.mem.Allocator,
     error_pos: *?[*]const u8,
 ) ![]const u8 {
     const after_interface = skipWord(input, "interface", &error_pos.*) catch
         return error.ExpectedInterfaceKeyword;
     const name_start = skipAllWhitespace(after_interface);
-    const eol_start = try tokenizeName(name_start, tokens, error_pos);
+    const eol_start = try tokenizeName(name_start, tokens, allocator, error_pos);
     return skipEol(eol_start, error_pos);
 }
 
 test tokenizeInterface {
     const gpa = std.testing.allocator;
-    var tokens = Tokens.init(gpa);
-    defer tokens.deinit();
+    var tokens: Tokens = .empty;
+    defer tokens.deinit(gpa);
     var error_pos: ?[*]const u8 = null;
     const test_string = "interface\n org.varlink.service \n test";
     const expected_token: Token = .{ .name = "org.varlink.service" };
@@ -240,6 +245,7 @@ test tokenizeInterface {
         try tokenizeInterface(
             test_string,
             &tokens,
+            gpa,
             &error_pos,
         ),
     );
@@ -252,48 +258,49 @@ const TokenizeTypeError = error{ExpectedType} || std.mem.Allocator.Error || Toke
 fn tokenizeType(
     input: []const u8,
     tokens: *Tokens,
+    allocator: std.mem.Allocator,
     error_pos: *?[*]const u8,
 ) TokenizeTypeError![]const u8 {
     var dummy_error_pos: ?[*]const u8 = null;
     if (skipWord(input, "bool", &dummy_error_pos)) |rest| {
-        try tokens.append(.bool);
+        try tokens.append(allocator, .bool);
         return rest;
     } else |_| if (skipWord(input, "int", &dummy_error_pos)) |rest| {
-        try tokens.append(.int);
+        try tokens.append(allocator, .int);
         return rest;
     } else |_| if (skipWord(input, "float", &dummy_error_pos)) |rest| {
-        try tokens.append(.float);
+        try tokens.append(allocator, .float);
         return rest;
     } else |_| if (skipWord(input, "string", &dummy_error_pos)) |rest| {
-        try tokens.append(.string);
+        try tokens.append(allocator, .string);
         return rest;
     } else |_| if (skipWord(input, "[string]", &dummy_error_pos)) |rest| {
-        try tokens.append(.dict);
-        return tokenizeType(rest, tokens, error_pos);
+        try tokens.append(allocator, .dict);
+        return tokenizeType(rest, tokens, allocator, error_pos);
     } else |_| if (skipWord(input, "[]", &dummy_error_pos)) |rest| {
-        try tokens.append(.array);
-        return tokenizeType(rest, tokens, &dummy_error_pos);
+        try tokens.append(allocator, .array);
+        return tokenizeType(rest, tokens, allocator, &dummy_error_pos);
     } else |_| if (skipWord(input, "?", &dummy_error_pos)) |rest| {
-        try tokens.append(.maybe);
+        try tokens.append(allocator, .maybe);
         // TODO: Ban multiple question marks in a row?
-        return tokenizeType(rest, tokens, error_pos);
+        return tokenizeType(rest, tokens, allocator, error_pos);
     } else |_| if (skipWord(input, "object", &dummy_error_pos)) |rest| {
-        try tokens.append(.object);
+        try tokens.append(allocator, .object);
         return rest;
     } else |_| {
         if (input.len == 0 or input[0] != '(') {
-            return tokenizeName(input, tokens, error_pos);
+            return tokenizeName(input, tokens, allocator, error_pos);
         }
-        return tokenizeStructlike(input, tokens, error_pos);
+        return tokenizeStructlike(input, tokens, allocator, error_pos);
     }
 }
 
 test tokenizeType {
     const gpa = std.testing.allocator;
-    var tokens = Tokens.init(gpa);
-    defer tokens.deinit();
+    var tokens: Tokens = .empty;
+    defer tokens.deinit(gpa);
     var error_pos: ?[*]const u8 = null;
-    const rest = try tokenizeType("?[](first: int, second: string) ", &tokens, &error_pos);
+    const rest = try tokenizeType("?[](first: int, second: string) ", &tokens, gpa, &error_pos);
     try testing.expectEqualStrings(" ", rest);
     try testing.expectEqual(@as(usize, 8), tokens.items.len);
     try testing.expectEqual(Token.maybe, tokens.items[0]);
@@ -316,11 +323,12 @@ const TokenizeEnumFieldsError = error{
 fn tokenizeEnumFields(
     input: []const u8,
     tokens: *Tokens,
+    allocator: std.mem.Allocator,
     error_pos: *?[*]const u8,
 ) TokenizeEnumFieldsError![]const u8 {
     var current_input = input;
     while (true) {
-        const rest = try tokenizeName(current_input, tokens, error_pos);
+        const rest = try tokenizeName(current_input, tokens, allocator, error_pos);
         current_input = skipAllWhitespace(rest);
         if (current_input.len == 0) {
             if (rest.len > 0) {
@@ -331,7 +339,7 @@ fn tokenizeEnumFields(
         switch (current_input[0]) {
             ',' => current_input = skipAllWhitespace(current_input[1..]),
             ')' => {
-                try tokens.append(.enum_end);
+                try tokens.append(allocator, .enum_end);
                 return current_input[1..];
             },
             else => {
@@ -356,6 +364,7 @@ const TokenizeStructFieldsError = error{
 fn tokenizeStructFields(
     input: []const u8,
     tokens: *Tokens,
+    allocator: std.mem.Allocator,
     error_pos: *?[*]const u8,
 ) (TokenizeTypeError || TokenizeStructlikeError)![]const u8 {
     var current_input = input;
@@ -365,7 +374,7 @@ fn tokenizeStructFields(
             return error.UnclosedStruct;
         }
         if (current_input[0] == ')') {
-            try tokens.append(.struct_end);
+            try tokens.append(allocator, .struct_end);
             return current_input[1..];
         }
 
@@ -373,6 +382,7 @@ fn tokenizeStructFields(
             try tokenizeName(
                 current_input,
                 tokens,
+                allocator,
                 error_pos,
             ),
         );
@@ -383,7 +393,7 @@ fn tokenizeStructFields(
                 error_pos,
             ) catch return error.ExpectedColon,
         );
-        current_input = skipAllWhitespace(try tokenizeType(before_type, tokens, error_pos));
+        current_input = skipAllWhitespace(try tokenizeType(before_type, tokens, allocator, error_pos));
         if (current_input.len == 0) {
             error_pos.* = input.ptr;
             return error.UnclosedStruct;
@@ -408,21 +418,23 @@ const TokenizeStructlikeError = error{
 fn tokenizeStructlike(
     input: []const u8,
     tokens: *Tokens,
+    allocator: std.mem.Allocator,
     error_pos: *?[*]const u8,
 ) (TokenizeTypeError || TokenizeStructlikeError)![]const u8 {
     const after_opening = skipWord(input, "(", error_pos) catch
         return error.ExpectedOpeningParenthesis;
     const first_member = skipAllWhitespace(after_opening);
-    const start_marker = try tokens.addOne();
+    const start_marker = try tokens.addOne(allocator);
     if (first_member.len > 0 and first_member[0] == ')') {
         start_marker.* = .struct_begin;
-        try tokens.append(.struct_end);
+        try tokens.append(allocator, .struct_end);
         return first_member[1..];
     }
     const after_name = skipAllWhitespace(
         try tokenizeName(
             first_member,
             tokens,
+            allocator,
             error_pos,
         ),
     );
@@ -433,7 +445,7 @@ fn tokenizeStructlike(
     switch (after_name[0]) {
         ')' => {
             start_marker.* = .enum_begin;
-            try tokens.append(.enum_end);
+            try tokens.append(allocator, .enum_end);
             return after_name[1..];
         },
         ',' => {
@@ -441,6 +453,7 @@ fn tokenizeStructlike(
             return tokenizeEnumFields(
                 skipAllWhitespace(after_name[1..]),
                 tokens,
+                allocator,
                 error_pos,
             );
         },
@@ -450,7 +463,7 @@ fn tokenizeStructlike(
             // member name instead of the first type. Therefore, drop the name
             // and let tokenizeStructFields add it back.
             _ = tokens.pop();
-            return tokenizeStructFields(first_member, tokens, error_pos);
+            return tokenizeStructFields(first_member, tokens, allocator, error_pos);
         },
         else => {
             error_pos.* = after_name.ptr;
@@ -459,7 +472,12 @@ fn tokenizeStructlike(
     }
 }
 
-fn tokenizeStruct(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) ![]const u8 {
+fn tokenizeStruct(
+    input: []const u8,
+    tokens: *Tokens,
+    allocator: std.mem.Allocator,
+    error_pos: *?[*]const u8,
+) ![]const u8 {
     if (input.len == 0) {
         return error.ExpectedStruct;
     }
@@ -467,13 +485,14 @@ fn tokenizeStruct(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) 
         error_pos.* = input.ptr;
         return error.ExpectedStruct;
     }
-    try tokens.append(.struct_begin);
-    return tokenizeStructFields(skipAllWhitespace(input[1..]), tokens, error_pos);
+    try tokens.append(allocator, .struct_begin);
+    return tokenizeStructFields(skipAllWhitespace(input[1..]), tokens, allocator, error_pos);
 }
 
 fn tokenizeTypedef(
     input: []const u8,
     tokens: *Tokens,
+    allocator: std.mem.Allocator,
     error_pos: *?[*]const u8,
 ) ![]const u8 {
     const after_type = try skipWord(input, "type", error_pos);
@@ -486,12 +505,13 @@ fn tokenizeTypedef(
         error_pos.* = after_space.ptr;
         return error.ExpectedSpace;
     }
-    try tokens.append(.typedef);
-    const after_name = try tokenizeName(after_space, tokens, error_pos);
+    try tokens.append(allocator, .typedef);
+    const after_name = try tokenizeName(after_space, tokens, allocator, error_pos);
     return skipEol(
         try tokenizeStructlike(
             skipAllWhitespace(after_name),
             tokens,
+            allocator,
             error_pos,
         ),
         error_pos,
@@ -500,8 +520,8 @@ fn tokenizeTypedef(
 
 test "tokenizeTypedef can handle enums" {
     const gpa = std.testing.allocator;
-    var tokens = Tokens.init(gpa);
-    defer tokens.deinit();
+    var tokens: Tokens = .empty;
+    defer tokens.deinit(gpa);
     var error_pos: ?[*]const u8 = null;
 
     const test_string = "type Test ( a , b ) \n ";
@@ -510,6 +530,7 @@ test "tokenizeTypedef can handle enums" {
         try tokenizeTypedef(
             test_string,
             &tokens,
+            gpa,
             &error_pos,
         ),
     );
@@ -524,8 +545,8 @@ test "tokenizeTypedef can handle enums" {
 
 test "tokenizeTypedef can handle structs" {
     const gpa = std.testing.allocator;
-    var tokens = Tokens.init(gpa);
-    defer tokens.deinit();
+    var tokens: Tokens = .empty;
+    defer tokens.deinit(gpa);
     var error_pos: ?[*]const u8 = null;
 
     const test_string = "type Test ( a: int , b: ?int )\n";
@@ -534,6 +555,7 @@ test "tokenizeTypedef can handle structs" {
         try tokenizeTypedef(
             test_string,
             &tokens,
+            gpa,
             &error_pos,
         ),
     );
@@ -549,7 +571,12 @@ test "tokenizeTypedef can handle structs" {
     try testing.expectEqual(Token.struct_end, tokens.items[8]);
 }
 
-fn tokenizeError(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) ![]const u8 {
+fn tokenizeError(
+    input: []const u8,
+    tokens: *Tokens,
+    allocator: std.mem.Allocator,
+    error_pos: *?[*]const u8,
+) ![]const u8 {
     const after_error = skipWord(input, "error", error_pos) catch
         return error.ExpectedError;
     const after_space = skipAllWhitespace(after_error);
@@ -561,12 +588,13 @@ fn tokenizeError(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) !
         error_pos.* = after_space.ptr;
         return error.ExpectedSpace;
     }
-    try tokens.append(.@"error");
-    const after_name = try tokenizeName(after_space, tokens, error_pos);
+    try tokens.append(allocator, .@"error");
+    const after_name = try tokenizeName(after_space, tokens, allocator, error_pos);
     return skipEol(
         try tokenizeStruct(
             skipAllWhitespace(after_name),
             tokens,
+            allocator,
             error_pos,
         ),
         error_pos,
@@ -575,14 +603,15 @@ fn tokenizeError(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) !
 
 test tokenizeError {
     const gpa = testing.allocator;
-    var tokens = Tokens.init(gpa);
-    defer tokens.deinit();
+    var tokens: Tokens = .empty;
+    defer tokens.deinit(gpa);
     var error_pos: ?[*]const u8 = null;
     try testing.expectEqualStrings(
         " ",
         try tokenizeError(
             "error test ( ) \n ",
             &tokens,
+            gpa,
             &error_pos,
         ),
     );
@@ -593,7 +622,7 @@ test tokenizeError {
     try testing.expectEqual(Token.struct_end, tokens.items[3]);
 }
 
-fn tokenizeMethod(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) ![]const u8 {
+fn tokenizeMethod(input: []const u8, tokens: *Tokens, allocator: std.mem.Allocator, error_pos: *?[*]const u8) ![]const u8 {
     const after_method = skipWord(input, "method", error_pos) catch
         return error.ExpectedError;
     const after_space = skipAllWhitespace(after_method);
@@ -605,11 +634,12 @@ fn tokenizeMethod(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) 
         error_pos.* = after_space.ptr;
         return error.ExpectedSpace;
     }
-    try tokens.append(.method);
-    const after_name = try tokenizeName(after_space, tokens, error_pos);
+    try tokens.append(allocator, .method);
+    const after_name = try tokenizeName(after_space, tokens, allocator, error_pos);
     const after_first = skipAllWhitespace(try tokenizeStruct(
         skipAllWhitespace(after_name),
         tokens,
+        allocator,
         error_pos,
     ));
     const after_arrow = skipAllWhitespace(
@@ -620,19 +650,19 @@ fn tokenizeMethod(input: []const u8, tokens: *Tokens, error_pos: *?[*]const u8) 
         ) catch return error.ExpectedArrow,
     );
     return skipEol(
-        try tokenizeStruct(after_arrow, tokens, error_pos),
+        try tokenizeStruct(after_arrow, tokens, allocator, error_pos),
         error_pos,
     );
 }
 
 test tokenizeMethod {
     const gpa = testing.allocator;
-    var tokens = Tokens.init(gpa);
-    defer tokens.deinit();
+    var tokens: Tokens = .empty;
+    defer tokens.deinit(gpa);
     var error_pos: ?[*]const u8 = null;
     try testing.expectEqualStrings(
         " ",
-        try tokenizeMethod("method test () -> () \n ", &tokens, &error_pos),
+        try tokenizeMethod("method test () -> () \n ", &tokens, gpa, &error_pos),
     );
     try testing.expectEqual(@as(usize, 6), tokens.items.len);
     try testing.expectEqual(Token.method, tokens.items[0]);
@@ -644,10 +674,10 @@ test tokenizeMethod {
 }
 
 pub fn tokenize(input: []const u8, error_pos: *?[*]const u8, allocator: std.mem.Allocator) !Tokens {
-    var tokens = Tokens.init(allocator);
-    errdefer tokens.deinit();
+    var tokens: Tokens = .empty;
+    errdefer tokens.deinit(allocator);
     const before_interface = skipAllWhitespace(input);
-    const after_interface = try tokenizeInterface(before_interface, &tokens, error_pos);
+    const after_interface = try tokenizeInterface(before_interface, &tokens, allocator, error_pos);
     var current_input = after_interface;
     while (true) {
         current_input = skipAllWhitespace(current_input);
@@ -655,9 +685,9 @@ pub fn tokenize(input: []const u8, error_pos: *?[*]const u8, allocator: std.mem.
             break;
         }
         switch (current_input[0]) {
-            'm' => current_input = try tokenizeMethod(current_input, &tokens, error_pos),
-            't' => current_input = try tokenizeTypedef(current_input, &tokens, error_pos),
-            'e' => current_input = try tokenizeError(current_input, &tokens, error_pos),
+            'm' => current_input = try tokenizeMethod(current_input, &tokens, allocator, error_pos),
+            't' => current_input = try tokenizeTypedef(current_input, &tokens, allocator, error_pos),
+            'e' => current_input = try tokenizeError(current_input, &tokens, allocator, error_pos),
             else => {},
         }
     }

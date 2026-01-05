@@ -36,9 +36,9 @@ pub fn route(
     error_info: *?[]const u8,
 ) RouteError!void {
     const Interface = @TypeOf(interface_context.*).interface;
-    inline for (@typeInfo(Interface).Struct.decls) |decl| {
+    inline for (@typeInfo(Interface).@"struct".decls) |decl| {
         const Request = @field(Interface, decl.name);
-        if (@typeInfo(@TypeOf(Request)) != .Type) {
+        if (@typeInfo(@TypeOf(Request)) != .type) {
             continue;
         }
         if (@hasDecl(Request, "Parameters") != (mode != .client_error)) {
@@ -130,7 +130,7 @@ pub fn routeInterface(
     extra_data: anytype,
     error_info: *?[]const u8,
 ) RouteError!void {
-    inline for (@typeInfo(@TypeOf(context.*)).Struct.fields) |interface_context| {
+    inline for (@typeInfo(@TypeOf(context.*)).@"struct".fields) |interface_context| {
         if (std.mem.eql(u8, interface_context.name, interface)) {
             try route(
                 mode,

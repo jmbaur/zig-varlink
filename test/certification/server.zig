@@ -33,8 +33,8 @@ pub const url = "https://sr.ht/~mainiomano/zig-varlink/";
         // This is a really roundabout way of doing things, but it might be
         // the easiest way to compare arbitrary zig-varlink types. Hashmap
         // ordering is not guaranteed, but it might work just well enough.
-        const expected_json = try std.json.stringifyAlloc(allocator, wants, .{});
-        const actual_json = try std.json.stringifyAlloc(allocator, got, .{});
+        const expected_json = try std.json.Stringify.valueAlloc(allocator, wants, .{});
+        const actual_json = try std.json.Stringify.valueAlloc(allocator, got, .{});
         if (!std.mem.eql(u8, expected_json, actual_json)) {
             try connection.serializeError(
                 orgVarlinkCertification.CertificationError{

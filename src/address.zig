@@ -10,12 +10,10 @@ pub const TcpAddress = union(enum) {
 
     pub fn format(
         self: TcpAddress,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        out_stream: anytype,
+        writer: *std.Io.Writer,
     ) !void {
         switch (self) {
-            inline else => |addr| try addr.format(fmt, options, out_stream),
+            inline else => |addr| try addr.format(writer),
         }
     }
 
@@ -37,16 +35,14 @@ pub const Address = union(enum) {
     /// Format the address into its string form.
     pub fn format(
         self: Address,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        out_stream: anytype,
+        writer: *std.Io.Writer,
     ) !void {
-        try out_stream.writeAll(@tagName(self));
-        try out_stream.writeByte(':');
+        try writer.writeAll(@tagName(self));
+        try writer.writeByte(':');
         switch (self) {
-            .tcp => |addr| try addr.format(fmt, options, out_stream),
-            .unix => |addr| try out_stream.writeAll(std.mem.sliceTo(&addr.path, 0)),
-            .device => |dev| try out_stream.writeAll(dev),
+            .tcp => |addr| try addr.format(writer),
+            .unix => |addr| try writer.writeAll(std.mem.sliceTo(&addr.path, 0)),
+            .device => |dev| try writer.writeAll(dev),
         }
     }
 
@@ -93,7 +89,7 @@ pub const Address = union(enum) {
             const parsed = try parseTcp(address);
             const string_form = try std.fmt.allocPrint(
                 std.testing.allocator,
-                "{}",
+                "{f}",
                 .{parsed},
             );
             defer std.testing.allocator.free(string_form);
@@ -123,7 +119,7 @@ pub const Address = union(enum) {
             const parsed = try parseTcp(address);
             const string_form = try std.fmt.allocPrint(
                 std.testing.allocator,
-                "{}",
+                "{f}",
                 .{parsed},
             );
             defer std.testing.allocator.free(string_form);
@@ -203,7 +199,7 @@ pub const Address = union(enum) {
             const parsed = try parse(address);
             const string_form = try std.fmt.allocPrint(
                 std.testing.allocator,
-                "{}",
+                "{f}",
                 .{parsed},
             );
             defer std.testing.allocator.free(string_form);
@@ -214,7 +210,7 @@ pub const Address = union(enum) {
             const parsed = try parse(address);
             const string_form = try std.fmt.allocPrint(
                 std.testing.allocator,
-                "{}",
+                "{f}",
                 .{parsed},
             );
             defer std.testing.allocator.free(string_form);
@@ -225,7 +221,7 @@ pub const Address = union(enum) {
             const parsed = try parse(address);
             const string_form = try std.fmt.allocPrint(
                 std.testing.allocator,
-                "{}",
+                "{f}",
                 .{parsed},
             );
             defer std.testing.allocator.free(string_form);

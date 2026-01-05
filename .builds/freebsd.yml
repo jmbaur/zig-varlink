@@ -10,9 +10,9 @@ sources:
   - https://github.com/varlink/python.git
 tasks:
   - install_deps: |
-      curl -sS https://ziglang.org/download/0.13.0/zig-freebsd-x86_64-0.13.0.tar.xz | tar -x
-      sudo mv zig-freebsd-x86_64-0.13.0/zig /usr/bin/
-      sudo mv zig-freebsd-x86_64-0.13.0/lib /usr/lib/zig
+      curl -sS https://ziglang.org/download/0.15.2/zig-x86_64-freebsd-0.15.2.tar.xz | tar -x
+      sudo mv zig-x86_64-freebsd-0.15.2/zig /usr/bin/
+      sudo mv zig-x86_64-freebsd-0.15.2/lib /usr/lib/zig
   - build: |
       cd zig-varlink
       zig build
