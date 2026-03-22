@@ -19,9 +19,18 @@ pub fn build(b: *Build) void {
     });
     b.installArtifact(scanner);
 
+    const build_scanner = b.addExecutable(.{
+        .name = "zig-varlink-scanner-for-build",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/scanner.zig"),
+            .target = b.graph.host,
+            .optimize = .Debug,
+        }),
+    });
+
     const orgVarlinkService = scanFile(
         b,
-        scanner,
+        build_scanner,
         b.path("org.varlink.service.varlink"),
         "orgVarlinkService.zig",
     );
