@@ -18,7 +18,7 @@ pub fn parseParameters(map: std.json.ObjectMap) error{InvalidMessage}!std.json.O
         // libvarlink accepts lacking parameters when they are expected and
         // returns the same error as if the parameters were empty. Let's
         // match this behavior.
-        return std.json.ObjectMap.init(undefined);
+        return .empty;
     }
 }
 
@@ -176,10 +176,11 @@ pub fn jsonize(value: anytype, allocator: std.mem.Allocator) std.mem.Allocator.E
         return value;
     }
     if (comptime isHashMap(T)) {
-        var result = std.StringArrayHashMap(std.json.Value).init(allocator);
+        var result: std.array_hash_map.String(std.json.Value) = .empty;
         var it = value.iterator();
         while (it.next()) |entry| {
             try result.putNoClobber(
+                allocator,
                 entry.key_ptr.*,
                 try jsonize(entry.value_ptr.*, allocator),
             );
@@ -219,9 +220,10 @@ pub fn jsonize(value: anytype, allocator: std.mem.Allocator) std.mem.Allocator.E
             }
         },
         .@"struct" => |struc| {
-            var result = std.StringArrayHashMap(std.json.Value).init(allocator);
+            var result: std.array_hash_map.String(std.json.Value) = .empty;
             inline for (struc.fields) |field| {
                 try result.putNoClobber(
+                    allocator,
                     field.name,
                     try jsonize(@field(value, field.name), allocator),
                 );

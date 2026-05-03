@@ -26,7 +26,9 @@ fn countRequests(comptime Context: type) comptime_int {
 /// Generate an enum with the Context's requests' qualified names as fields.
 fn RequestEnumFor(comptime Context: type) type {
     const request_count = countRequests(Context);
-    var requests: [request_count]std.builtin.Type.EnumField = undefined;
+    const TagInt = std.math.IntFittingRange(0, request_count);
+    var field_names: [request_count][]const u8 = undefined;
+    var field_values: [request_count]TagInt = undefined;
     var count_requests: u32 = 0;
     for (std.meta.fields(Context)) |field| {
         const Interface = field.type.interface;
@@ -34,22 +36,19 @@ fn RequestEnumFor(comptime Context: type) type {
         for (decls) |decl| {
             const Decl = @field(Interface, decl.name);
             if (@typeInfo(@TypeOf(Decl)) == .type and @hasDecl(Decl, "Parameters")) {
-                requests[count_requests] = .{
-                    .name = field.name ++ "." ++ decl.name,
-                    .value = count_requests,
-                };
+                field_names[count_requests] = field.name ++ "." ++ decl.name;
+                field_values[count_requests] = count_requests;
                 count_requests += 1;
             }
         }
     }
-    return @Type(.{
-        .@"enum" = .{
-            .tag_type = std.math.IntFittingRange(0, count_requests),
-            .fields = requests[0..count_requests],
-            .decls = &.{},
-            .is_exhaustive = true,
-        },
-    });
+
+    return @Enum(
+        TagInt,
+        .exhaustive,
+        &field_names,
+        &field_values,
+    );
 }
 
 fn FieldTypeByName(comptime T: type, comptime name: []const u8) type {
@@ -161,20 +160,21 @@ pub fn Client(comptime Context: type) type {
             options: Options,
         ) !void {
             const allocator = client.arena.allocator();
-            var response_map = std.json.ObjectMap.init(allocator);
-            try response_map.putNoClobber("method", .{ .string = @tagName(method) });
+            var response_map: std.json.ObjectMap = .empty;
+            try response_map.putNoClobber(allocator, "method", .{ .string = @tagName(method) });
             try response_map.putNoClobber(
+                allocator,
                 "parameters",
                 try varlinkJson.jsonize(parameters, allocator),
             );
             if (options.oneway) {
-                try response_map.putNoClobber("oneway", .{ .bool = true });
+                try response_map.putNoClobber(allocator, "oneway", .{ .bool = true });
             }
             if (options.more) {
-                try response_map.putNoClobber("more", .{ .bool = true });
+                try response_map.putNoClobber(allocator, "more", .{ .bool = true });
             }
             if (options.upgrade) {
-                try response_map.putNoClobber("upgrade", .{ .bool = true });
+                try response_map.putNoClobber(allocator, "upgrade", .{ .bool = true });
             }
             const json: std.json.Value = .{ .object = response_map };
 

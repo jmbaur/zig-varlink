@@ -1,0 +1,8 @@
+.{
+    .name = .zig_varlink,
+    .fingerprint = 0x3616558af6419f9d,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.16.0",
+    .paths = .{""},
+    .dependencies = .{},
+}

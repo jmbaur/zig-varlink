@@ -194,7 +194,7 @@ const Arguments = struct {
     input_path: [:0]const u8,
     output_path: [:0]const u8,
 
-    fn parse(writer: anytype, args: *std.process.ArgIterator) !Arguments {
+    fn parse(writer: anytype, args: *std.process.Args.Iterator) !Arguments {
         if (!args.skip()) {
             try writer.writeAll("Missing program name as first argument!\n");
             return error.InvalidArguments;
@@ -222,16 +222,14 @@ const Arguments = struct {
     }
 };
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     var stderr_buffer: [256]u8 = undefined;
-    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+    var stderr_writer = std.Io.File.stderr().writer(init.io, &stderr_buffer);
     const stderr = &stderr_writer.interface;
 
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+    const allocator = init.arena.allocator();
 
-    var args = try std.process.argsWithAllocator(allocator);
+    var args = init.minimal.args.iterate();
     defer args.deinit();
     const arguments = Arguments.parse(stderr, &args) catch {
         try stderr.flush();
@@ -239,7 +237,8 @@ pub fn main() !void {
     };
 
     const input = getInput: {
-        const input_file = std.fs.cwd().openFileZ(
+        const input_file = std.Io.Dir.cwd().openFile(
+            init.io,
             arguments.input_path,
             .{},
         ) catch |err| {
@@ -247,8 +246,8 @@ pub fn main() !void {
             try stderr.flush();
             std.process.exit(1);
         };
-        defer input_file.close();
-        var input_reader = input_file.reader(&.{});
+        defer input_file.close(init.io);
+        var input_reader = input_file.reader(init.io, &.{});
         break :getInput try input_reader.interface.allocRemaining(
             allocator,
             .unlimited,
@@ -265,7 +264,8 @@ pub fn main() !void {
     var tokens = try tokenizer.tokenize(input, &error_pos, allocator);
     defer tokens.deinit(allocator);
 
-    const output_file = std.fs.cwd().createFileZ(
+    const output_file = std.Io.Dir.cwd().createFile(
+        init.io,
         arguments.output_path,
         .{},
     ) catch |err| {
@@ -273,9 +273,9 @@ pub fn main() !void {
         try stderr.flush();
         std.process.exit(1);
     };
-    defer output_file.close();
+    defer output_file.close(init.io);
     var output_buffer: [4096]u8 = undefined;
-    var output_writer = output_file.writer(&output_buffer);
+    var output_writer = output_file.writer(init.io, &output_buffer);
     const output = &output_writer.interface;
     try writeInterface(output, tokens.items, input);
     try output.flush();

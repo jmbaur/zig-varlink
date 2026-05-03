@@ -4,33 +4,15 @@
 
 const std = @import("std");
 const Build = std.Build;
+const Dependency = Build.Dependency;
 
 pub fn build(b: *Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const scanner = b.addExecutable(.{
-        .name = "zig-varlink-scanner",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/scanner.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
-    });
-    b.installArtifact(scanner);
-
-    const build_scanner = b.addExecutable(.{
-        .name = "zig-varlink-scanner-for-build",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/scanner.zig"),
-            .target = b.graph.host,
-            .optimize = .Debug,
-        }),
-    });
-
     const orgVarlinkService = scanFile(
         b,
-        build_scanner,
+        null,
         b.path("org.varlink.service.varlink"),
         "orgVarlinkService.zig",
     );
@@ -48,7 +30,7 @@ pub fn build(b: *Build) void {
 
     const orgVarlinkCertification = scanFile(
         b,
-        scanner,
+        null,
         b.path("test/certification/org.varlink.certification.varlink"),
         "orgVarlinkCertification.zig",
     );
@@ -74,7 +56,7 @@ pub fn build(b: *Build) void {
         "zigVarlinkTest",
         scanFile(
             b,
-            scanner,
+            null,
             b.path("test/org.zig-varlink.test.varlink"),
             "zigVarlinkTest.zig",
         ),
@@ -112,10 +94,18 @@ pub fn build(b: *Build) void {
 
 pub fn scanFile(
     b: *Build,
-    scanner: *Build.Step.Compile,
+    dep: ?*Dependency,
     input_path: Build.LazyPath,
     output_path: []const u8,
 ) *Build.Module {
+    const scanner = b.addExecutable(.{
+        .name = "zig-varlink-scanner-for-build",
+        .root_module = b.createModule(.{
+            .root_source_file = if (dep) |d| d.path("src/scanner.zig") else b.path("src/scanner.zig"),
+            .target = b.graph.host,
+            .optimize = .Debug,
+        }),
+    });
     const run = b.addRunArtifact(scanner);
     run.addFileArg(input_path);
     const module_source = run.addOutputFileArg(output_path);

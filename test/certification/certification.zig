@@ -42,7 +42,7 @@ fn handleResponse(reader: *std.Io.Reader, state: anytype) !void {
 }
 
 const Arguments = struct {
-    address: std.net.Address,
+    address: std.Io.net.IpAddress,
     client: bool,
 
     fn parseArgument(writer: *std.Io.Writer, argument: []const u8, arguments: *Arguments) !void {
@@ -61,7 +61,7 @@ const Arguments = struct {
                 try writer.writeAll("Expected a TCP address\n");
                 return error.InvalidArguments;
             }
-            arguments.address = parsed_address.tcp.toNetAddress();
+            arguments.address = parsed_address.tcp;
             return;
         } else {
             try writer.print("Unexpected argument: {s}\n", .{argument});
@@ -69,16 +69,16 @@ const Arguments = struct {
         }
     }
 
-    fn parse(writer: *std.Io.Writer, args: *std.process.ArgIterator) !Arguments {
+    fn parse(writer: *std.Io.Writer, args: *std.process.Args.Iterator) !Arguments {
         if (!args.skip()) {
             try writer.writeAll("Missing program name as first argument!\n");
             return error.InvalidArguments;
         }
         var arguments: Arguments = .{
-            .address = std.net.Address.initIp4(
-                .{ 127, 0, 0, 1 },
+            .address = std.Io.net.IpAddress.parseIp4(
+                "127.0.0.1",
                 23456,
-            ),
+            ) catch @panic("invalid IPv4 address"),
             .client = false,
         };
 
@@ -97,16 +97,16 @@ fn callStart(state: anytype) !void {
     );
 }
 
-fn runClient(address: std.net.Address) !void {
-    var connection = try std.net.tcpConnectToAddress(address);
-    defer connection.close();
+fn runClient(io: std.Io, address: std.Io.net.IpAddress) !void {
+    var connection = try address.connect(io, .{ .mode = .stream });
+    defer connection.close(io);
 
     var arena = std.heap.ArenaAllocator.init(gpa);
     defer arena.deinit();
     const allocator = arena.allocator();
 
     var write_buffer: [4096]u8 = undefined;
-    var writer = connection.writer(&write_buffer);
+    var writer = connection.writer(io, &write_buffer);
     var context: ClientContext = .{
         .@"org.varlink.certification" = .{
             .allocator = allocator,
@@ -119,26 +119,26 @@ fn runClient(address: std.net.Address) !void {
     try writer.interface.flush();
 
     var read_buffer: [1024]u8 = undefined;
-    var reader = connection.reader(&read_buffer);
+    var reader = connection.reader(io, &read_buffer);
     while (!context.@"org.varlink.certification".done) {
-        try handleResponse(reader.interface(), &state);
+        try handleResponse(&reader.interface, &state);
         try writer.interface.flush();
     }
 }
 
-fn runServer(stderr: *std.Io.Writer, address: std.net.Address) !void {
-    var socket_server = try address.listen(.{ .reuse_address = true });
-    defer socket_server.deinit();
-    try stderr.print("Listening to {f}\n", .{socket_server.listen_address});
+fn runServer(io: std.Io, stderr: *std.Io.Writer, address: std.Io.net.IpAddress) !void {
+    var socket_server = try address.listen(io, .{ .mode = .stream, .reuse_address = true });
+    defer socket_server.deinit(io);
+    try stderr.print("Listening to {f}\n", .{socket_server.socket.address});
     try stderr.flush();
 
-    const connection = try socket_server.accept();
-    defer connection.stream.close();
+    const connection = try socket_server.accept(io);
+    defer connection.close(io);
 
     var read_buffer: [1024]u8 = undefined;
-    var reader = connection.stream.reader(&read_buffer);
+    var reader = connection.reader(io, &read_buffer);
     var raw_client_id: [16]u8 = undefined;
-    try std.posix.getrandom(&raw_client_id);
+    io.vtable.random(io.userdata, &raw_client_id);
     var client_id_buf: [32]u8 = undefined;
     _ = std.fmt.bufPrint(
         &client_id_buf,
@@ -148,37 +148,40 @@ fn runServer(stderr: *std.Io.Writer, address: std.net.Address) !void {
     var context: ServerContext = .{};
 
     var write_buffer: [1024]u8 = undefined;
-    var writer = connection.stream.writer(&write_buffer);
+    var writer = connection.writer(io, &write_buffer);
     var varlink_connection: ServerConnection = .{
         .response_writer = &writer.interface,
         .data = &client_id_buf,
     };
 
     while (!context.@"org.varlink.certification".done) {
-        try handleRequest(
+        handleRequest(
             &varlink_connection,
-            reader.interface(),
+            &reader.interface,
             &context,
-        );
+        ) catch |err| switch (err) {
+            error.EndOfStream => break,
+            else => return err,
+        };
         try writer.interface.flush();
     }
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     var stderr_buffer: [256]u8 = undefined;
-    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+    var stderr_writer = std.Io.File.stderr().writer(init.io, &stderr_buffer);
     const stderr = &stderr_writer.interface;
 
-    var args = try std.process.argsWithAllocator(gpa);
+    var args = init.minimal.args.iterate();
     defer args.deinit();
     const arguments = Arguments.parse(stderr, &args) catch {
         try stderr.flush();
         std.process.exit(1);
     };
     if (arguments.client) {
-        try runClient(arguments.address);
+        try runClient(init.io, arguments.address);
     } else {
-        try runServer(stderr, arguments.address);
+        try runServer(init.io, stderr, arguments.address);
     }
 }
 

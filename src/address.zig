@@ -4,31 +4,10 @@
 
 const std = @import("std");
 
-pub const TcpAddress = union(enum) {
-    ipv4: std.net.Ip4Address,
-    ipv6: std.net.Ip6Address,
-
-    pub fn format(
-        self: TcpAddress,
-        writer: *std.Io.Writer,
-    ) !void {
-        switch (self) {
-            inline else => |addr| try addr.format(writer),
-        }
-    }
-
-    pub fn toNetAddress(address: TcpAddress) std.net.Address {
-        return switch (address) {
-            .ipv4 => |addr| .{ .in = addr },
-            .ipv6 => |addr| .{ .in6 = addr },
-        };
-    }
-};
-
 /// A Varlink address.
 pub const Address = union(enum) {
-    tcp: TcpAddress,
-    unix: if (std.net.has_unix_sockets) std.posix.sockaddr.un else void,
+    tcp: std.Io.net.IpAddress,
+    unix: if (std.Io.net.has_unix_sockets) std.Io.net.UnixAddress else void,
     /// A device node.
     device: []const u8,
 
@@ -46,108 +25,7 @@ pub const Address = union(enum) {
         }
     }
 
-    const ParseTcpError = error{
-        MissingClosingBracket,
-        MissingPort,
-        InvalidPort,
-        InvalidAddress,
-    };
-
-    fn parseTcp(address: []const u8) ParseTcpError!TcpAddress {
-        if (address[0] == '[') {
-            const ipv6_end = std.mem.indexOfScalar(u8, address, ']') orelse
-                return error.MissingClosingBracket;
-            if (ipv6_end >= address.len - 2 or address[ipv6_end + 1] != ':') {
-                return error.MissingPort;
-            }
-            const port = std.fmt.parseInt(u16, address[ipv6_end + 2 ..], 10) catch
-                return error.InvalidPort;
-            const net_address = std.net.Address.parseIp6(
-                address[1..ipv6_end],
-                port,
-            ) catch return error.InvalidAddress;
-            return .{ .ipv6 = net_address.in6 };
-        } else {
-            const colon_position = std.mem.indexOfScalar(u8, address, ':') orelse
-                return error.MissingPort;
-            if (colon_position == address.len - 1) {
-                return error.MissingPort;
-            }
-            const port = std.fmt.parseInt(u16, address[colon_position + 1 ..], 10) catch
-                return error.InvalidPort;
-            const net_address = std.net.Address.parseIp4(
-                address[0..colon_position],
-                port,
-            ) catch return error.InvalidAddress;
-            return .{ .ipv4 = net_address.in };
-        }
-    }
-
-    test "parseTcp can handle IPv4" {
-        {
-            const address = "127.0.0.1:1234";
-            const parsed = try parseTcp(address);
-            const string_form = try std.fmt.allocPrint(
-                std.testing.allocator,
-                "{f}",
-                .{parsed},
-            );
-            defer std.testing.allocator.free(string_form);
-            try std.testing.expectEqualStrings("127.0.0.1:1234", string_form);
-        }
-        {
-            const address = "127.0.0.1";
-            try std.testing.expectError(error.MissingPort, parseTcp(address));
-        }
-        {
-            const address = "127.0.0.1:";
-            try std.testing.expectError(error.MissingPort, parseTcp(address));
-        }
-        {
-            const address = "127.0.0.1:-1";
-            try std.testing.expectError(error.InvalidPort, parseTcp(address));
-        }
-        {
-            const address = "609.609.609.609:0";
-            try std.testing.expectError(error.InvalidAddress, parseTcp(address));
-        }
-    }
-
-    test "parseTcp can handle IPv6" {
-        {
-            const address = "[::1]:1234";
-            const parsed = try parseTcp(address);
-            const string_form = try std.fmt.allocPrint(
-                std.testing.allocator,
-                "{f}",
-                .{parsed},
-            );
-            defer std.testing.allocator.free(string_form);
-            try std.testing.expectEqualStrings("[::1]:1234", string_form);
-        }
-        {
-            const address = "[::1]";
-            try std.testing.expectError(error.MissingPort, parseTcp(address));
-        }
-        {
-            const address = "[::1]:";
-            try std.testing.expectError(error.MissingPort, parseTcp(address));
-        }
-        {
-            const address = "[::1]:-1";
-            try std.testing.expectError(error.InvalidPort, parseTcp(address));
-        }
-        {
-            const address = "[:::1]:0";
-            try std.testing.expectError(error.InvalidAddress, parseTcp(address));
-        }
-        {
-            const address = "[::1";
-            try std.testing.expectError(error.MissingClosingBracket, parseTcp(address));
-        }
-    }
-
-    pub const ParseError = ParseTcpError || error{
+    pub const ParseError = std.Io.net.IpAddress.ParseLiteralError || error{
         MissingAddress,
         NameTooLong,
         NullByteInUnixPath,
@@ -169,17 +47,17 @@ pub const Address = union(enum) {
             }
             const scheme = effective_address[0..colon_position];
             if (std.mem.eql(u8, "tcp", scheme)) {
-                return .{ .tcp = try parseTcp(effective_address[colon_position + 1 ..]) };
+                return .{ .tcp = try std.Io.net.IpAddress.parseLiteral(effective_address[colon_position + 1 ..]) };
             } else if (std.mem.eql(u8, "unix", scheme)) {
-                if (comptime std.net.has_unix_sockets) {
+                if (comptime std.Io.net.has_unix_sockets) {
                     // TODO: Support Linux abstract sockets?
                     // Address.initUnix doesn't check for null bytes despite not
                     // supporting them, so let's do that ourselves.
                     if (std.mem.indexOfScalar(u8, effective_address, 0) != null) {
                         return error.NullByteInUnixPath;
                     }
-                    const addr = try std.net.Address.initUnix(effective_address[colon_position + 1 ..]);
-                    return .{ .unix = addr.un };
+                    const addr = try std.Io.net.UnixAddress.init(effective_address[colon_position + 1 ..]);
+                    return .{ .unix = addr };
                 } else {
                     return error.UnsupportedUnixSocket;
                 }

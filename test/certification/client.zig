@@ -10,7 +10,7 @@ const orgVarlinkCertification = @import("orgVarlinkCertification");
 
     allocator: std.mem.Allocator,
     client_id: []const u8 = "",
-    last_more_replies: std.ArrayListUnmanaged([]const u8) = .{},
+    last_more_replies: std.ArrayListUnmanaged([]const u8) = .empty,
     done: bool = false,
 
     pub fn deinit(context: *@This()) void {
